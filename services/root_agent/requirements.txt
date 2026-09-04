@@ -1,0 +1,7 @@
+langchain
+langchain-core
+langchain-openai
+langgraph
+python-dotenv==1.1.1
+httpx==0.28.1
+gradio

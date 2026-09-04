@@ -1,0 +1,38 @@
+services:
+  verification_mcp_server:
+    build: ./services/verification_mcp_server
+    container_name: verification_mcp_server
+    ports:
+      - "3010:3010"
+    volumes:
+      # Монтируем папку data внутрь контейнера для доступа mcp-сервера к данным.
+      - ./data:/opt/data
+    environment:
+      - FASTMCP_HOST=0.0.0.0   # обязательно 0.0.0.0 для доступа извне контейнера
+      - FASTMCP_PORT=3010
+    restart: unless-stopped
+
+  vllm:
+    profiles: ["vllm"]
+    build:
+      context: ./services/vllm
+      dockerfile: Dockerfile
+    container_name: vllm
+    env_file:
+      - ./services/vllm/.env  # Для варьирования параметров без ребилда
+    ports:
+      - "3040:8901"
+    volumes:
+      - vllm-models:/root/.cache/huggingface # Чтобы не качать модель заново каждый раз
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  app-cache:
+  vllm-models:

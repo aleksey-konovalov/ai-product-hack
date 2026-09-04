@@ -1,0 +1,19 @@
+{
+  "local_qwen_agent": {
+    "provider": "lmstudio",
+    "model": "qwen/qwen3.8-27b",
+    "base_url": "http://localhost:1234/v1",
+    "api_key_env": "any",
+    "temperature":0.2,
+    "top_p":0.9
+  },
+  "api_qwen_agent": {
+    "provider": "openai",
+    "model": "qwen3.5-27b",
+    "base_url": "https://api.dslab.tech/v1",
+    "api_key_env": "DSLAB_API_KEY", 
+    "temperature": 0.2,
+    "top_p":0.9
+  }
+}
+
