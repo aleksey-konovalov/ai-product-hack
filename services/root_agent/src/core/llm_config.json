@@ -9,7 +9,6 @@
     "extra_body": {
       "reasoning_effort": "low",
       "chat_template_kwargs": {"enable_thinking": false}
-    }
   },
   "api_qwen_agent": {
     "provider": "openai",
@@ -18,6 +17,12 @@
     "api_key_env": "DSLAB_API_KEY", 
     "temperature": 0.2,
     "top_p":0.9
+  },
+  "api_glm_flash_agent": {
+    "provider": "openai",
+    "model": "glm-5.3-flash",
+    "base_url": "https://api.dslab.tech/v1",
+    "api_key_env": "DSLAB_API_KEY"
   }
 }
 

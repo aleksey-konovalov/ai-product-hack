@@ -1,4 +1,4 @@
-mcp<2
+mcp
 uvicorn
 starlette
 httpx
