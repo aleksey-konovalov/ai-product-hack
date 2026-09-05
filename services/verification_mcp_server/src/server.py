@@ -4,7 +4,13 @@ import json
 from pathlib import Path
 import asyncio
 
-from mcp.server.mcpserver import MCPServer, Context
+# Совместимость версий mcp: в mcp<2 класс называется FastMCP (API идентичен:
+# @mcp.tool(), @mcp.resource(), mcp.streamable_http_app()). Пытаемся импортировать
+# «родной» MCPServer, иначе используем FastMCP под тем же именем.
+try:
+    from mcp.server.mcpserver import MCPServer, Context  # noqa: F401
+except ModuleNotFoundError:
+    from mcp.server.fastmcp import FastMCP as MCPServer, Context
 
 # Импорт логгера из shared
 from shared.utils.logger import app_logger, get_logger
