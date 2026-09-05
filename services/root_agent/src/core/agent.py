@@ -16,7 +16,7 @@ from langchain_core.messages import HumanMessage
 
 from .llm_client import llm
 from .prompts import root_agent_prompt
-# from .middleware import TrimMessagesMiddleware
+from .middleware import TrimMessagesMiddleware
 
 from shared.utils.logger import app_logger, get_logger
 
@@ -43,6 +43,6 @@ root_agent = create_agent(
     llm,
     tools=mcp_tools,
     system_prompt=root_agent_prompt,
-    # middleware=[TrimMessagesMiddleware(max_messages=15)],
+    middleware=[TrimMessagesMiddleware(max_messages=15, max_tool_messages=1)],
     checkpointer=InMemorySaver(),
 )

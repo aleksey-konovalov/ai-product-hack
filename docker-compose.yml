@@ -1,6 +1,8 @@
 services:
   verification_mcp_server:
-    build: ./services/verification_mcp_server
+    build: 
+      context: .
+      dockerfile: ./services/verification_mcp_server/Dockerfile
     container_name: verification_mcp_server
     ports:
       - "3010:3010"
