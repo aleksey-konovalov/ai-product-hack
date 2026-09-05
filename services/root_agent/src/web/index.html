@@ -815,6 +815,7 @@ function stepsHtml(c,full){
   return `<div class="plate attention steps-block"><h2>Что проверить до сделки</h2><ol>${c.steps.map(s=>`<li>${esc(s.text)} <span class="why">(${esc(s.why)})</span></li>`).join('')}</ol></div>`;
 }
 function summaryHtml(c){
+  c._briefed=true;   // разбор по компании показан — в этой сессии больше не повторяем общий обзор
   const items=signalItems(c);
   const total=(c.headline?1:0)+items.length;
   const cards=items.map(factCard).join('');
@@ -1059,7 +1060,7 @@ function agentAnswer(q){
   const t=q.toLowerCase().trim();
   const inns=[...new Set((q.match(/\d{10,12}/g)||[]).filter(x=>x.length===10||x.length===12))];
   if(/^доступн|доступные инн|какие инн|список компаний/.test(t)){ S.ctx=S.session.length?S.ctx:'start'; return `<p>В моковой базе макета 10 отчётов (в проде — 100, через инструмент <code>list_reports</code>). Клик по строке добавляет в сессию:</p><table><tr><th>ИНН</th><th>Компания</th><th>Метка банка</th></tr>${Object.values(DB).map(c=>`<tr class="pick" data-add="${c.inn}"><td class="mono">${c.inn}</td><td>${esc(c.short)}</td><td>${riskStatus(c)}</td></tr>`).join('')}</table>`; }
-  if(/^(очист|сброс|начать заново|новая сессия)/.test(t)){ S.session=[]; S.deal={goal:null,amount:null}; S.focus=[]; S.focusMode=false; S.filter='all'; S.ctx='start'; return `<p>Сессия очищена. Введите ИНН, чтобы начать.</p>`; }
+  if(/^(очист|сброс|начать заново|новая сессия)/.test(t)){ S.session=[]; S.deal={goal:null,amount:null}; S.focus=[]; S.focusMode=false; S.filter='all'; S.ctx='start'; Object.values(DB).forEach(x=>{x._briefed=false;x._brief=null;}); return `<p>Сессия очищена. Введите ИНН, чтобы начать.</p>`; }
   if(/^(убери|удали|убрать|удалить|исключи)/.test(t)){
     const c = inns.length?DB[inns[0]]:findByName(t);
     if(!c||!S.session.includes(c.inn)) return `<p>Не нашёл такого контрагента в сессии. Сейчас в сессии: ${names(cs())||'никого'}.</p>`;
@@ -1185,7 +1186,7 @@ function buildAnalyze(c){
   const gaps=(c.gaps||[]).map((g,i)=>({id:'GAP_'+i,text:g.text,ref:g.ref}));
   const next_steps=(c.steps||[]).map((s,i)=>({signal_id:'STEP_'+i,text:s.text,why:s.why}));
   const deal=(S.deal&&(S.deal.goal||S.deal.amount))?{goal:S.deal.goal,amount:S.deal.amount}:null;
-  return {inn:c.inn,profile:{name:c.name,short:c.short,isIP:!!c.isIP,okved:c.okved,age:c.age,riskLabel:RISK[c.risk][0],zskLabel:ZSK[c.zsk][0],reg:c.reg,report:c.report},
+  return {inn:c.inn,assessment_given:!!c._briefed,profile:{name:c.name,short:c.short,isIP:!!c.isIP,okved:c.okved,age:c.age,riskLabel:RISK[c.risk][0],zskLabel:ZSK[c.zsk][0],reg:c.reg,report:c.report},
     deal_context:deal,signals,gaps,summary_slots:signals.map(s=>s.id),next_steps};
 }
 
@@ -1194,12 +1195,15 @@ function buildAnalyze(c){
 function pickKind(text){
   const t=text.toLowerCase().trim();
   const inns=(text.match(/\d{10,12}/g)||[]).filter(x=>x.length===10||x.length===12);
-  // --- Детерминированно (НЕ к модели): операции с данными/состоянием ---
-  if(/^(убери|удали|исключи|очист|сброс|начать заново)/.test(t)) return null;            // сессия
-  if(/^(доступн|какие инн|какие компании|список компаний)/.test(t)) return null;          // list_reports
-  if(/по годам|динамик/.test(t)) return null;                                             // график — данные
-  if(/только с негатив|у кого предупрежд|у кого пробел|покажи матриц|^ко всем|все компании/.test(t)) return null; // фильтры-выборки
-  if(/(что проверить|до сделки)/.test(t) && !/сравн|лучше|выбрат/.test(t)) return null;   // шаги из таблицы правил
+  // --- Детерминированно (НЕ к модели): только отрисовка данных/состояния ---
+  if(/^(убери|удали|исключи|очист|сброс|начать заново)/.test(t)) return null;            // операции с сессией (действия)
+  if(/^(доступн|какие инн|какие компании|список компаний)/.test(t)) return null;          // list_reports — кликабельная таблица данных
+  if(/по годам|динамик/.test(t)) return null;                                             // график строится из данных
+  if(/покажи матриц|^ко всем|все компании/.test(t)) return null;                          // навигация к матрице (таблица — из данных)
+  // ПРИМЕЧАНИЕ: сама матрица в панели рисуется из json-данных (renderMatrix).
+  // Если в проде ячейки матрицы потребуют NL-переформулировки — это отдельный вызов qwen на содержимое ячеек.
+  // Фильтры/выборки («только с негативными», «у кого предупреждения/пробелы») и «что проверить до сделки»
+  // теперь формулирует модель; состояние фильтра панели всё равно выставит agentAnswer (детерминированно).
   // --- К локальной модели ---
   if(inns.length===1&&DB[inns[0]]) return 'summary';                                       // добавили одну компанию → сводка
   if(S.session.length) return 'model';                                                     // любой другой вопрос: модель сама решит qa/compare
@@ -1282,7 +1286,7 @@ document.addEventListener('click',e=>{
   const t=e.target, d=t.dataset, cl=s=>t.closest(s);
   if(d.del){ e.stopPropagation(); send('убери '+DB[d.del].short); }
   else if(d.deldeal){ S.deal={goal:null,amount:null}; renderAll(); }
-  else if(d.clear){ e.preventDefault(); if(confirm('Очистить сессию? Контрагенты, контекст сделки и история чата будут сброшены.')){ S.session=[]; S.deal={goal:null,amount:null}; S.focus=[]; S.focusMode=false; S.panel='closed'; renderAll(); greet(); } }
+  else if(d.clear){ e.preventDefault(); if(confirm('Очистить сессию? Контрагенты, контекст сделки и история чата будут сброшены.')){ S.session=[]; S.deal={goal:null,amount:null}; S.focus=[]; S.focusMode=false; S.panel='closed'; Object.values(DB).forEach(x=>{x._briefed=false;x._brief=null;}); renderAll(); greet(); } }
   else if(cl('.cchip[data-inn]')){ showCompanySummary(cl('.cchip[data-inn]').dataset.inn); }
   else if(t.classList.contains('ref')){ e.stopPropagation(); openRef(d.ref, cl('.msg')?innOf(t):null); }
   else if(cl('.fact')){ openRef(cl('.fact').dataset.ref, cl('.msg')?innOf(t):null); }
