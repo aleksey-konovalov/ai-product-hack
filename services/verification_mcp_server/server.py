@@ -1,8 +1,8 @@
 import sys
-from mcp.server.mcpserver import MCPServer, Context
+from mcp.server.fastmcp import FastMCP, Context
 
 
-mcp = MCPServer("verification_mcp_server")
+mcp = FastMCP("verification_mcp_server")
 
 @mcp.tool()
 def verify_text(text: str, ctx: Context) -> str:

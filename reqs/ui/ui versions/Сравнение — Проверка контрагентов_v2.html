@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Проверка контрагентов — макет интерфейса</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Токены — подмножество @alfalab/core-components-vars (colors-bluetint) */
+  :root{
+    --text-primary: rgba(3,3,6,.88);
+    --text-secondary: rgba(4,4,19,.55);
+    --text-tertiary: rgba(5,8,29,.38);
+    --text-link: #0b1f35;
+    --bg-primary:#fff;
+    --bg-secondary:#f3f4f5;
+    --bg-tertiary:#e9eaee;
+    --border:rgba(11,31,53,.12);
+    --negative:#ff4837; --negative-text:#ec2d20; --negative-bg:#ffebeb;
+    --attention:#fa9313; --attention-text:#ea8313; --attention-bg:#ffefd9;
+    --positive:#0cc44d; --positive-text:#0d9336; --positive-bg:#e6f8ec;
+    --info-bg:#f3f4f5;
+    --accent:#ef3124;
+    --r12:12px; --r8:8px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:var(--font);color:var(--text-primary);background:var(--bg-secondary);font-size:15px;line-height:20px}
+  button{font:inherit;cursor:pointer}
+  h1,h2,h3{margin:0;font-weight:600}
+  h1{font-size:20px;line-height:24px}
+  h2{font-size:16px;line-height:20px}
+  h3{font-size:13px;line-height:18px;color:var(--text-secondary);font-weight:500}
+  .muted{color:var(--text-secondary)} .tertiary{color:var(--text-tertiary)} .small{font-size:13px;line-height:18px}
+  .mono{font-family:var(--mono);font-size:12px}
+  .row{display:flex;gap:8px;align-items:center}
+
+  header{height:56px;background:var(--bg-primary);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px}
+  header .logo{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
+  header .spacer{flex:1}
+
+  /* Сетка: две колонки */
+  .layout{display:grid;grid-template-columns:1fr 400px;gap:16px;padding:16px 24px 24px;height:calc(100% - 56px);min-width:1200px}
+  .panel{background:var(--bg-primary);border-radius:var(--r12);border:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+  .panel-body{padding:16px;overflow:auto;flex:1;min-height:0}
+  #work{display:flex;flex-direction:column;flex:1;min-height:0}
+
+  .btn{height:40px;border-radius:var(--r8);border:0;padding:0 14px;font-weight:500}
+  .btn.primary{background:#0b1f35;color:#fff} .btn.primary:disabled{opacity:.4;cursor:default}
+  .btn.secondary{background:var(--bg-secondary);color:var(--text-primary)}
+  .btn.ghost{background:transparent;color:var(--text-secondary)}
+  .btn.sm{height:30px;padding:0 10px;font-size:13px}
+
+  /* Панель сессии: ряд чипов над рабочей областью */
+  .sessionbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);min-height:56px}
+  .sessionbar .label{font-size:13px;color:var(--text-secondary);margin-right:4px}
+  .cchip{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 6px 0 10px;border-radius:16px;border:1px solid var(--border);background:var(--bg-primary);cursor:pointer;max-width:260px}
+  .cchip:hover{background:var(--bg-secondary)}
+  .cchip.active{border-color:#0b1f35;box-shadow:inset 0 0 0 1px #0b1f35}
+  .cchip .name{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cchip .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .dot.green{background:var(--positive)} .dot.orange{background:var(--attention)} .dot.red{background:var(--negative)} .dot.grey{background:var(--text-tertiary)}
+  .cchip .warn{color:var(--negative-text);font-weight:700;font-size:12px}
+  .cchip .x{border:0;background:none;color:var(--text-tertiary);font-size:15px;line-height:14px;padding:2px 4px;border-radius:50%}
+  .cchip .x:hover{background:var(--bg-tertiary);color:var(--text-primary)}
+  .cchip.deal{background:var(--bg-secondary);border-style:dashed;cursor:default}
+  .cchip.deal .name{font-weight:400}
+  .sessionbar .counter{font-size:13px;color:var(--text-secondary);margin-left:auto;white-space:nowrap}
+
+  /* Статус-метка */
+  .status{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:10px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap}
+  .status.green{background:var(--positive-bg);color:var(--positive-text)}
+  .status.orange{background:var(--attention-bg);color:var(--attention-text)}
+  .status.red{background:var(--negative-bg);color:var(--negative-text)}
+  .status.grey{background:var(--bg-tertiary);color:var(--text-secondary)}
+
+  /* Вкладки */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);padding:0 16px}
+  .tab{border:0;background:none;padding:12px 12px;font-weight:500;color:var(--text-secondary);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;gap:6px;align-items:center}
+  .tab.active{color:var(--text-primary);border-bottom-color:#0b1f35}
+  .badge{background:var(--bg-tertiary);border-radius:10px;padding:0 6px;font-size:12px;line-height:18px;font-weight:500;color:var(--text-secondary)}
+
+  .subject{padding:16px 16px 12px;display:flex;flex-direction:column;gap:6px}
+  .subject .title{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+  /* Факт сводки */
+  .fact{display:grid;grid-template-columns:24px 1fr;gap:12px;padding:12px 14px;border-radius:var(--r12);border:1px solid var(--border);border-left-width:4px;margin-bottom:8px;cursor:pointer}
+  .fact:hover{filter:brightness(.985)}
+  .fact .slot{font-size:12px;line-height:16px;color:var(--text-secondary);margin-bottom:2px}
+  .fact .text{font-weight:500}
+  .fact.negative{border-left-color:var(--negative);background:var(--negative-bg)}
+  .fact.caution{border-left-color:var(--attention);background:var(--attention-bg)}
+  .fact.gap{border-left-color:var(--text-tertiary);border-style:dashed;border-left-style:solid;background:transparent}
+  .fact.info{border-left-color:var(--text-secondary);background:var(--info-bg)}
+  .fact.positive{border-left-color:var(--positive);background:transparent}
+  .ico{width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;font-size:13px;font-weight:700;color:#fff;margin-top:1px;flex:none}
+  .negative .ico,.ico.negative{background:var(--negative)} .caution .ico,.ico.caution{background:var(--attention)}
+  .gap .ico,.ico.gap{background:transparent;color:var(--text-secondary);border:1.5px dashed var(--text-tertiary)}
+  .info .ico,.ico.info{background:var(--text-secondary)} .positive .ico,.ico.positive{background:var(--positive)}
+  .ico.sm{width:16px;height:16px;font-size:10px;margin-top:2px}
+  .ico.xs{width:12px;height:12px;font-size:8px;margin-top:0}
+
+  .ref{display:inline-block;font-family:var(--mono);font-size:12px;line-height:16px;color:var(--text-secondary);background:rgba(11,31,53,.06);border-radius:6px;padding:1px 6px;margin:4px 4px 0 0;cursor:pointer;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+  .ref:hover{background:rgba(11,31,53,.12);color:var(--text-primary)}
+
+  .plate{border-radius:var(--r12);padding:14px 16px;margin-top:16px;border:1px solid var(--border)}
+  .plate h2{margin-bottom:8px;font-size:15px}
+  .plate.gap{border-style:dashed;background:transparent}
+  .plate.attention{background:var(--attention-bg);border-color:transparent}
+  .plate.negative{background:var(--negative-bg);border-color:transparent}
+  .plate.common{background:var(--bg-secondary);border-color:transparent}
+  .plate ol,.plate ul{margin:0;padding-left:20px} .plate li{margin:4px 0}
+  .plate li .why{color:var(--text-secondary);font-size:13px}
+  .alert{display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:var(--r12);background:var(--negative-bg);color:var(--negative-text);font-weight:600;margin-bottom:12px}
+  .foot{margin-top:16px;font-size:12px;color:var(--text-tertiary);display:flex;gap:8px;align-items:center}
+  .spinner{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--text-secondary);border-radius:50%;animation:spin 1s linear infinite;display:inline-block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Карточка */
+  .block{border:1px solid var(--border);border-radius:var(--r12);margin-bottom:12px;transition:box-shadow .3s}
+  .block.hl{box-shadow:0 0 0 3px #ffd75e}
+  .block > summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;align-items:center;gap:10px;font-weight:600}
+  .block > summary::-webkit-details-marker{display:none}
+  .block > summary::after{content:"⌄";margin-left:auto;color:var(--text-tertiary);font-size:18px;transition:transform .2s}
+  .block[open] > summary::after{transform:rotate(180deg)}
+  .block .body{padding:0 16px 16px}
+  .kv{display:grid;grid-template-columns:220px 1fr;gap:6px 16px;font-size:14px}
+  .kv .k{color:var(--text-secondary)} .kv .v{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
+  .sig{display:inline-flex;gap:4px;align-items:center;font-size:12px;color:var(--text-secondary)}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{font-weight:500;color:var(--text-secondary);font-size:13px}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .chart{display:flex;gap:24px;align-items:flex-end;height:140px;padding:8px 8px 0;border-bottom:1px solid var(--border);margin:8px 0 6px}
+  .chart .yr{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+  .chart .bars{display:flex;gap:4px;align-items:flex-end;height:100%;width:100%;justify-content:center}
+  .chart .bar{width:26px;border-radius:4px 4px 0 0;background:#0b1f35;position:relative}
+  .chart .bar.profit{background:#8c99a6}
+  .chart .bar span{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--text-secondary);white-space:nowrap}
+  .chart .nodata{width:100%;height:100%;border:1.5px dashed var(--text-tertiary);border-radius:6px;display:grid;place-items:center;color:var(--text-tertiary);font-size:12px}
+  .chart-x{display:flex;gap:24px;padding:0 8px}
+  .chart-x div{flex:1;text-align:center;font-size:12px;color:var(--text-secondary)}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--text-secondary);margin-bottom:8px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+  .seg{display:inline-flex;background:var(--bg-secondary);border-radius:8px;padding:2px}
+  .seg button{border:0;background:none;padding:4px 10px;border-radius:6px;font-size:13px;color:var(--text-secondary);white-space:nowrap}
+  .seg button.on{background:#fff;color:var(--text-primary);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  details.col summary{cursor:pointer;color:var(--text-secondary);font-size:13px;list-style:none}
+  details.col summary::before{content:"▸ "} details.col[open] summary::before{content:"▾ "}
+
+  /* Сравнение: итоги */
+  .totals{border-radius:var(--r12);border:1px solid var(--border);padding:16px;margin-bottom:16px;background:var(--bg-primary)}
+  .totals .headlines{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+  .totals .headlines .alert{margin:0;padding:8px 12px;font-size:13px;font-weight:500}
+  .totals .crit{display:grid;grid-template-columns:150px 1fr;gap:4px 12px;font-size:13px;margin-top:10px}
+  .totals .crit .k{color:var(--text-secondary)}
+  .totals .crit .g{display:inline-flex;gap:4px;align-items:flex-start;margin-right:12px}
+  .minis{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin-top:12px}
+  .mini{border:1px solid var(--border);border-radius:var(--r8);padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:4px;min-width:0}
+  .mini:hover{background:var(--bg-secondary)}
+  .mini .n{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+  .mini .row{gap:6px}
+  .mini .f{font-size:12px;line-height:16px;color:var(--text-primary);display:flex;gap:6px;align-items:flex-start}
+  .mini .cnt{font-size:12px;color:var(--text-secondary);display:flex;gap:10px}
+  .mini .cnt span{display:inline-flex;gap:3px;align-items:center}
+
+  /* Сравнение: матрица */
+  .toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0 8px}
+  .toolbar .grow{flex:1}
+  .mx-wrap{overflow:auto;border:1px solid var(--border);border-radius:var(--r12)}
+  .mx{font-size:13px;min-width:820px}
+  .mx th{position:sticky;top:0;background:var(--bg-primary);z-index:2;font-size:12px}
+  .mx th:nth-child(2),.mx td:nth-child(2){position:sticky;left:0;background:var(--bg-primary);z-index:1;min-width:190px;max-width:220px}
+  .mx th:nth-child(2){z-index:3}
+  .mx td:first-child,.mx th:first-child{width:28px;padding-right:0}
+  .mx td{vertical-align:top;line-height:17px}
+  .mx tr.sel td{background:#f6f8fb}
+  .mx .cn{font-weight:600;cursor:pointer} .mx .cn:hover{text-decoration:underline}
+  .mx .item{display:flex;gap:5px;align-items:flex-start;margin:1px 0}
+  .mx .item span{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .mx.expanded .item span{display:block}
+  .mx .more{color:var(--text-secondary);font-size:12px;cursor:pointer;margin-left:20px}
+  .mx.expanded .more{display:none}
+  .mx .hidden-item{display:none} .mx.expanded .hidden-item{display:flex}
+  .mx tr.hl td{background:#fff8e1}
+  .cmp th:first-child,.cmp td:first-child{width:160px;color:var(--text-secondary);font-weight:500;background:var(--bg-primary);position:sticky;left:0}
+  .cmp th{vertical-align:top}
+  .cmp th .cname{color:var(--text-primary);font-weight:600;font-size:14px;cursor:pointer}
+  .cmp td{font-size:14px}
+  .cmp .item{display:flex;gap:6px;align-items:flex-start;margin:2px 0}
+  .gridN{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:8px}
+  .gridN .plate{margin:0}
+
+  /* Сравнение: графики по годам */
+  .ychart{margin-top:8px}
+  .ychart svg{width:100%;height:auto;display:block}
+  .ychart .lbl{font-size:11px;fill:var(--text-secondary)}
+  .ychart .ax{stroke:var(--border)}
+  .ychart .ln{fill:none;stroke-width:2;transition:opacity .15s}
+  .ychart .pt{stroke:#fff;stroke-width:1.5}
+  .ychart .end{font-size:11px;font-weight:500}
+  .ychart.dim .ln,.ychart.dim .pt,.ychart.dim .end{opacity:.18}
+  .ychart.dim .ln.on,.ychart.dim .pt.on,.ychart.dim .end.on{opacity:1}
+  .lchip{display:inline-flex;gap:6px;align-items:center;font-size:12px;padding:3px 8px;border-radius:12px;border:1px solid var(--border);cursor:pointer;background:var(--bg-primary)}
+  .lchip.off{opacity:.4;text-decoration:line-through}
+  .lchip i{width:10px;height:3px;border-radius:2px;display:inline-block}
+  .smalls{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:8px}
+  .sm-c{border:1px solid var(--border);border-radius:var(--r8);padding:8px 10px}
+  .sm-c .t{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:6px;align-items:center;justify-content:space-between}
+  .sm-c svg{width:100%;height:70px;display:block;margin-top:4px}
+  .sm-c .nd{height:70px;border:1.5px dashed var(--text-tertiary);border-radius:6px;display:grid;place-items:center;color:var(--text-tertiary);font-size:12px;margin-top:4px;text-align:center;padding:0 6px}
+
+  /* Чат */
+  .chat{display:flex;flex-direction:column}
+  .chat-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center}
+  .msgs{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:0}
+  .msg{max-width:94%;font-size:14px;line-height:20px}
+  .msg.user{align-self:flex-end;background:var(--bg-secondary);border-radius:var(--r12) var(--r12) 4px var(--r12);padding:10px 12px}
+  .msg.agent{align-self:flex-start}
+  .msg.agent p{margin:0 0 8px} .msg.agent p:last-child{margin:0}
+  .msg.agent ul,.msg.agent ol{margin:4px 0 8px;padding-left:18px}
+  .msg .sys{background:var(--bg-secondary);border-left:3px solid var(--text-tertiary);padding:8px 10px;border-radius:0 8px 8px 0;color:var(--text-secondary);font-size:13px}
+  .msg .err{background:var(--negative-bg);border-left:3px solid var(--negative);padding:8px 10px;border-radius:0 8px 8px 0;color:var(--negative-text);font-size:13px}
+  .msg .gapbox{border:1px dashed var(--text-tertiary);border-radius:8px;padding:6px 10px;color:var(--text-secondary);font-size:13px;margin:6px 0}
+  .msg .actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .msg table{font-size:13px} .msg td,.msg th{padding:4px 6px}
+  .msg tr.pick{cursor:pointer} .msg tr.pick:hover td{background:var(--bg-secondary)}
+  .chip{border:1px solid var(--border);background:var(--bg-primary);border-radius:16px;padding:4px 10px;font-size:13px;color:var(--text-primary);white-space:nowrap}
+  .chip:hover{background:var(--bg-secondary)}
+  .check{font-size:12px;color:var(--text-tertiary);margin-top:6px} .check summary{cursor:pointer;list-style:none}
+  .presets{display:flex;gap:6px;overflow-x:auto;padding:8px 16px 0;scrollbar-width:none}
+  .presets::-webkit-scrollbar{display:none}
+  .compose{display:flex;gap:8px;padding:12px 16px 16px;align-items:flex-end}
+  .compose textarea{flex:1;resize:none;border:1px solid var(--border);border-radius:var(--r8);padding:12px;font:inherit;min-height:48px;max-height:104px}
+  .compose button{width:48px;height:48px;border-radius:var(--r8);border:0;background:#0b1f35;color:#fff;font-size:18px}
+  .compose-hint{padding:0 16px 12px;font-size:12px;color:var(--text-tertiary)}
+  .skeleton{display:flex;flex-direction:column;gap:6px} .skeleton i{display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--bg-secondary),var(--bg-tertiary),var(--bg-secondary));background-size:200% 100%;animation:sk 1.2s infinite}
+  @keyframes sk{to{background-position:-200% 0}}
+
+  .empty{padding:48px 24px;text-align:center;color:var(--text-secondary)}
+  .empty .steps{display:flex;gap:24px;justify-content:center;margin-top:24px}
+  .empty .step{width:220px;padding:16px;border:1px dashed var(--border);border-radius:var(--r12);font-size:14px}
+  .empty .step b{display:block;font-size:24px;color:var(--text-tertiary);margin-bottom:6px}
+
+  .devbar{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--text-secondary)}
+  .devbar button{background:var(--bg-secondary);color:var(--text-primary);border:0;border-radius:6px;padding:4px 8px;font-size:12px}
+  .devbar button.on{background:#0b1f35;color:#fff}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">А</div>
+  <h1>Проверка контрагентов</h1>
+  <span class="status grey">данные отчёта банка</span>
+  <div class="spacer"></div>
+  <div class="devbar">
+    <span>Макет · состояние:</span>
+    <button data-state="empty">Пустая сессия</button>
+    <button data-state="one">1</button>
+    <button data-state="three">3</button>
+    <button data-state="ten" class="on">10</button>
+    <button id="llmToggle">LLM недоступна: выкл</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- A+B. Рабочая область с панелью сессии сверху -->
+  <main class="panel">
+    <div class="sessionbar" id="sessionBar"></div>
+    <div id="workEmpty" class="empty hidden">
+      <h2 style="color:var(--text-primary)">Начните с ИНН в чате</h2>
+      <p>Агент найдёт отчёт банка, покажет короткую сводку, а от двух компаний соберёт сравнение по единому набору критериев.</p>
+      <div class="steps">
+        <div class="step"><b>1</b>Напишите ИНН в чат: «проверь 9721159668»</div>
+        <div class="step"><b>2</b>Прочитайте 4–5 фактов и что проверить</div>
+        <div class="step"><b>3</b>Добавьте ещё до 9 компаний и сравните</div>
+      </div>
+    </div>
+    <div id="work">
+      <div class="subject" id="subject"></div>
+      <div class="tabs">
+        <button class="tab active" data-tab="summary">Сводка</button>
+        <button class="tab" data-tab="card">Карточка</button>
+        <button class="tab" data-tab="compare" id="tabCompare">Сравнение <span class="badge" id="cmpBadge">3</span></button>
+      </div>
+      <div class="panel-body" id="tabBody"></div>
+    </div>
+  </main>
+
+  <!-- C. Чат — единственная точка ввода -->
+  <section class="panel chat">
+    <div class="chat-head">
+      <h2>Чат с агентом</h2>
+      <span class="status grey">по данным отчёта</span>
+    </div>
+    <div class="msgs" id="msgs"></div>
+    <div class="presets" id="presets"></div>
+    <div class="compose">
+      <textarea id="chatInput" rows="1" placeholder="ИНН, вопрос или контекст сделки"></textarea>
+      <button id="sendBtn" title="Отправить">↑</button>
+    </div>
+    <div class="compose-hint">Примеры: «проверь 9721159668» · «убери Техпром» · «контракт на 100 млн, поставка» · «доступные ИНН»</div>
+  </section>
+</div>
+
+<script>
+/* ---------- Данные: 10 компаний из functional_spec.md §10.1 (T1–T4, T6–T9, T11, T12), значения — из data/contractors_audit.snapshot.json.
+   Число реестров в REG_CLEAN и тексты LLM — иллюстративные. ---------- */
+const MAX = 10;
+const P = {negative:'!', caution:'!', gap:'?', info:'i', positive:'✓'};
+const POL_ORDER = {negative:0, caution:1, gap:2, info:3, positive:4};
+const RISK = {LOW:['риск низкий','green'],MEDIUM:['риск средний','orange'],HIGH:['риск высокий','red'],UNKNOWN:['риск не определён','grey']};
+const ZSK = {GREEN:['ЗСК зелёный','green'],YELLOW:['ЗСК жёлтый','orange'],RED:['ЗСК красный','red']};
+const STEP = {
+  ep:['Запросить подтверждение погашения или справку ФССП; учесть сумму в условиях оплаты.','активные исполнительные производства'],
+  arb:['Посмотреть предмет открытых дел в картотеке арбитражных дел; уточнить у контрагента.','дела как ответчик'],
+  addr:['Подтвердить фактический адрес и реквизиты: договор аренды, свежая выписка ЕГРЮЛ.','адрес'],
+  block:['Запросить справку об отсутствии задолженности; не работать по предоплате до снятия блокировки.','блокировка счетов ФНС'],
+  auth:['Запросить документы о полномочиях подписанта.','недостоверные данные руководителя'],
+  fin:['Рассмотреть постоплату или обеспечение; запросить пояснения по отчётности.','финансы'],
+  finmiss:['Запросить бухгалтерскую отчётность за 2–3 года напрямую.','отчётности недостаточно'],
+  finip:['Запросить налоговую декларацию или выписку по счёту за период.','ИП не публикует отчётность'],
+  young:['Запросить рекомендации и портфолио; начать с небольшого объёма.','компания моложе 3 лет'],
+  change:['Уточнить причины смены; проверить полномочия нового руководителя по выписке.','смена руководителя / учредителя'],
+  status:['Уточнить статус в ЕГРЮЛ/ЕФРСБ до любых переговоров.','статус в ЕГРЮЛ'],
+  reason:['Запросить свежую выписку ЕГРЮЛ и уточнить, что за процедура идёт.','процедура в ЕГРЮЛ']
+};
+const st = (k,why)=>({text:STEP[k][0],why:why||STEP[k][1]});
+
+const DB = {
+'9721159668': {
+  inn:'9721159668', name:'ООО «ТРАНСЛОРИУМ»', short:'Транслориум', full:'ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "ТРАНСЛОРИУМ"', ogrn:'1227700142108', kpp:'772701001',
+  risk:'LOW', zsk:'GREEN', status:'действует', statusDate:'03.08.2026', reg:'16.03.2022', age:'4 года', report:'24.08.2026', size:'Средние предприятия',
+  okved:'49.42 — Предоставление услуг по перевозкам', okvedOther:46, address:'117303, г. Москва, муниципальный округ Зюзино, ул. Каховка, д. 11, к. 1, помещ. 6/1', email:'shidlovskayam@mail.ru', tax:'ОСНО',
+  fin:[{y:2023,pr:569.2,pf:5.8,cap:4.8,stl:8.4,ca:13.2},{y:2024,pr:761.3,pf:6.4,cap:5.1,stl:11.2,ca:16.4},{y:2025,pr:806.3,pf:7.9,cap:10.8,stl:7.9,ca:18.7}],
+  trend:'+42 % за 2023–2025', coef:null,
+  ep:{active:[],closed:[]}, arb:{total:1,sum:'957,2 тыс. ₽',pf:1,pfA:'957,2 тыс. ₽',pa:0,pp:0,df:0,da:0,dp:0}, insp:null,
+  regNeg:[{code:'massAddress',pol:'caution',text:'Находится в реестре организаций с массовым адресом, что может быть признаком фиктивной регистрации.'},{code:'massOkved',pol:'info',text:'Компания имеет большое количество кодов ОКВЭД, что может быть связано с попыткой охватить как можно больше направлений.'}],
+  regPos:10, auth:{name:'Даутова Анастасия Артуровна',pos:'генеральный директор',since:'08.12.2025',recent:true},
+  founders:[{name:'Межевых Виктория Андреевна',share:'100 %',since:'08.12.2025',recent:true}], licenses:[], related:7, headline:null,
+  facts:[
+    {slot:'Оценка банка',pol:'info',text:'Оценка банка: риск низкий, ЗСК зелёный.',refs:['baseInfo.riskLevel','zskRiskLevel']},
+    {slot:'Финансы',pol:'positive',text:'Выручка растёт: 569,2 млн ₽ (2023) → 806,3 млн ₽ (2025), +42 %.',refs:['finReports[year=2023].common.proceeds','finReports[year=2025].common.proceeds']},
+    {slot:'Юридические события',pol:'info',text:'Арбитраж: 1 дело, из них как истец 1, как ответчик 0; открытых дел как ответчик нет.',refs:['arbitrationByStatus.commonCount']},
+    {slot:'Реестры ФНС',pol:'caution',text:'Адрес регистрации — массовый.',refs:['reputationalRisks.negative[code=massAddress]']},
+    {slot:'Дополнительно',pol:'caution',text:'Смена руководителя и учредителя с 08.12.2025.',refs:['foundersInfo.authPerson.positionDate','foundersInfo.cofounders[0].dateFrom']}
+  ],
+  gaps:[{text:'сведений о проверках в отчёте нет',ref:'inspections'}],
+  steps:[st('addr','массовый адрес'),st('change','смена руководителя и учредителя')],
+  cmp:{bank:[['info','риск низкий, ЗСК зелёный']],fin:[['positive','Выручка растёт: +42 % (2023–2025)'],['positive','Прибыль растёт: 5,8 → 7,9 млн ₽']],legal:[['info','Арбитраж: 1 дело как истец; открытых как ответчик нет'],['positive','Исполнительные производства не найдены']],reg:[['caution','Адрес регистрации — массовый']],gapsRow:[['gap','Нет сведений о проверках']]}
+},
+'1660266560': {
+  inn:'1660266560', name:'ООО «АГИЛАР СК»', short:'Агилар СК', full:'ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "АГИЛАР СК"', ogrn:'1161690077592', kpp:'165901001',
+  risk:'MEDIUM', zsk:'GREEN', status:'действует', statusDate:'17.01.2026', reg:'16.03.2016', age:'10 лет', report:'07.08.2026', size:'Микропредприятие',
+  okved:'41.20 — Строительство жилых и нежилых зданий', okvedOther:15, address:'420059, Республика Татарстан, г. Казань, ул. Даурская, д. 12А, офис 32', email:null, tax:'УСН',
+  fin:[{y:2023,pr:8.2,pf:null,cap:0.9,stl:1.8,ca:1.7},{y:2024,pr:7.3,pf:1.6,cap:2.5,stl:3.8,ca:5.5},{y:2025,pr:79.8,pf:0.4,cap:2.8,stl:80.3,ca:78.1}],
+  trend:'+869 % за 2023–2025', coef:{y:2025,s:'0,04',sol:'1,04',pf:'0,5'},
+  ep:{active:[{n:'…/16058-ИП',d:'2025',a:null}],closed:[{n:'129505/19/16060-ИП',d:'27.05.2019',a:'200 ₽'},{n:'221131/24/16058-ИП',d:'02.05.2024',a:'500 ₽'},{n:'247175/24/16058-ИП',d:'16.05.2024',a:'11,0 тыс. ₽'}],closedTotal:15},
+  arb:{total:6,sum:'2,1 млн ₽',pf:1,pfA:'265,3 тыс. ₽',pa:0,pp:0,df:2,dfA:'1,1 млн ₽',da:0,dp:2,dpA:'568,0 тыс. ₽'}, insp:null,
+  regNeg:[{code:'executionProceedings',pol:'dup',text:'Есть действующие исполнительные производства, в которых выступает в качестве ответчика.'},{code:'arbitrationDefendant',pol:'dup',text:'Есть арбитражные дела, в которых выступает в качестве ответчика.'}],
+  regPos:12, auth:{name:'Шарапов Айрат Файзрахманович',pos:'директор',since:'08.12.2017',recent:false},
+  founders:[{name:'Шарапов Айрат Файзрахманович',share:'100 %',since:'27.12.2017',recent:false}], licenses:[], related:1, headline:null,
+  facts:[
+    {slot:'Оценка банка',pol:'info',text:'Оценка банка: риск средний, ЗСК зелёный.',refs:['baseInfo.riskLevel','zskRiskLevel']},
+    {slot:'Финансы',pol:'negative',text:'Краткосрочные обязательства (80,3 млн ₽) превышают оборотные активы (78,1 млн ₽) за 2025.',refs:['finReports[year=2025].liabilities.shortTermLiabilities.total','finReports[year=2025].assets.currentAssets.total']},
+    {slot:'Юридические события',pol:'negative',text:'Активные исполнительные производства: 1; по 1 сумма не указана.',refs:['executionProceedings[].active','executionProceedings[].amount']},
+    {slot:'Реестры ФНС',pol:'positive',text:'Проверено 12 реестров ФНС, негативных отметок нет.',refs:['reputationalRisks.positive[]']},
+    {slot:'Дополнительно',pol:'negative',text:'Открытые арбитражные дела как ответчик: 2 на 568,0 тыс. ₽.',refs:['arbitrationByStatus.defandantArbitration.defandantArbitrationPending.dpCount']}
+  ],
+  gaps:[{text:'сведений о проверках в отчёте нет',ref:'inspections'}],
+  steps:[st('ep','активное исполнительное производство'),st('arb','открытые дела как ответчик'),st('fin','краткосрочные обязательства выше оборотных активов, прибыль снижается')],
+  cmp:{bank:[['info','риск средний, ЗСК зелёный']],fin:[['negative','Краткосрочные обязательства превышают оборотные активы (2025)'],['negative','Прибыль снижается: 1,6 → 0,4 млн ₽'],['positive','Выручка растёт: 8,2 → 79,8 млн ₽']],legal:[['negative','Активные исполнительные производства: 1'],['negative','Открытые дела как ответчик: 2 на 568,0 тыс. ₽']],reg:[['positive','Проверено 12 реестров, отметок нет']],gapsRow:[['gap','Нет сведений о проверках']]}
+},
+'9714079997': {
+  inn:'9714079997', name:'ООО «ТЕХПРОМ»', short:'Техпром', full:'ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "ТЕХПРОМ"', ogrn:'1257700375008', kpp:'771401001',
+  risk:'HIGH', zsk:'RED', status:'действует', statusDate:'30.01.2026', reg:'22.08.2025', age:'меньше года', report:'31.07.2026', size:'Микропредприятие',
+  okved:'46.90 — Торговля оптовая неспециализированная', okvedOther:15, address:'123007, г. Москва, муниципальный округ Хорошевский, Хорошёвское ш., д. 1, помещ. 7/1', email:null, tax:'ОСНО',
+  fin:[{y:2023,pr:null,pf:null,cap:null,stl:null,ca:null},{y:2024,pr:0,pf:0,cap:0,stl:0,ca:0},{y:2025,pr:96.0,pf:0.001,cap:0.2,stl:0.27,ca:0.47}],
+  trend:'тренд оценить нельзя', coef:null,
+  ep:{active:[],closed:[]}, arb:null, insp:null,
+  regNeg:[{code:'massAddress',pol:'caution',text:'Находится в реестре организаций с массовым адресом, что может быть признаком фиктивной регистрации.'}],
+  regPos:11, auth:{name:'Косякин Степан Александрович',pos:'директор',since:'22.08.2025',recent:false},
+  founders:[{name:'Косякин Степан Александрович',share:'100 %',since:'22.08.2025',recent:false}], licenses:[], related:1, headline:null,
+  facts:[
+    {slot:'Оценка банка',pol:'info',text:'Оценка банка: риск высокий, ЗСК красный.',refs:['baseInfo.riskLevel','zskRiskLevel']},
+    {slot:'Финансы',pol:'gap',text:'Выручка есть только за 2025 (96,0 млн ₽); тренд оценить нельзя.',refs:['finReports[year=2025].common.proceeds']},
+    {slot:'Юридические события',pol:'positive',text:'Исполнительные производства не найдены.',refs:['executionProceedings']},
+    {slot:'Реестры ФНС',pol:'caution',text:'Адрес регистрации — массовый.',refs:['reputationalRisks.negative[code=massAddress]']},
+    {slot:'Дополнительно',pol:'caution',text:'Компания зарегистрирована 22.08.2025, ей меньше года.',refs:['baseInfo.registrationInfo.registrationDate']}
+  ],
+  gaps:[{text:'тренд выручки (данные только за 2025)',ref:'finReports[].common.proceeds'},{text:'сведений о проверках в отчёте нет',ref:'inspections'}],
+  steps:[st('addr','массовый адрес'),st('finmiss','выручка только за один год'),st('young')],
+  cmp:{bank:[['info','риск высокий, ЗСК красный']],fin:[['gap','Выручка только за 2025 (96,0 млн ₽); тренд оценить нельзя']],legal:[['positive','Исполнительные производства не найдены'],['positive','Арбитражные дела не найдены']],reg:[['caution','Адрес регистрации — массовый']],gapsRow:[['gap','Тренд выручки: данные за один год'],['gap','Нет сведений о проверках']]}
+},
+'592061218009': {
+  inn:'592061218009', name:'ИП МУРАВЬЕВА Е.А.', short:'ИП Муравьева', full:'МУРАВЬЕВА ЕКАТЕРИНА АЛЕКСАНДРОВНА', ogrn:'324784700417137', kpp:null, isIP:true,
+  risk:'HIGH', zsk:'GREEN', status:'действует', statusDate:'16.07.2026', reg:'23.12.2024', age:'1 год', report:'19.08.2026', size:null,
+  okved:'41.20 — Строительство жилых и нежилых зданий', okvedOther:18, address:null, email:null, tax:null,
+  fin:[], trend:null, coef:null,
+  ep:{active:[],closed:[]}, arb:null, insp:null, regNeg:[], regPos:14, auth:null, founders:[], licenses:[], related:0, headline:null,
+  facts:[
+    {slot:'Оценка банка',pol:'info',text:'Оценка банка: риск высокий, ЗСК зелёный.',refs:['baseInfo.riskLevel','zskRiskLevel']},
+    {slot:'Финансы',pol:'gap',text:'ИП не публикует бухгалтерскую отчётность — оценить финансы по отчёту нельзя.',refs:['finReports']},
+    {slot:'Юридические события',pol:'positive',text:'Исполнительные производства не найдены.',refs:['executionProceedings']},
+    {slot:'Реестры ФНС',pol:'positive',text:'Проверено 14 реестров ФНС, негативных отметок нет.',refs:['reputationalRisks.positive[]']},
+    {slot:'Дополнительно',pol:'caution',text:'ИП зарегистрирован 23.12.2024, ему 1 год.',refs:['baseInfo.registrationInfo.registrationDate']}
+  ],
+  gaps:[{text:'ИП не публикует отчётность',ref:'finReports'},{text:'сведений о проверках в отчёте нет',ref:'inspections'}],
+  steps:[st('finip'),st('young','ИП моложе 3 лет')],
+  cmp:{bank:[['info','риск высокий, ЗСК зелёный']],fin:[['gap','ИП не публикует отчётность; оценить финансы нельзя']],legal:[['positive','Исполнительные производства не найдены'],['positive','Арбитражные дела не найдены']],reg:[['positive','Проверено 14 реестров, отметок нет']],gapsRow:[['gap','Нет отчётности (ИП)'],['gap','Нет сведений о проверках']]}
+},
+'7826131151': {
+  inn:'7826131151', name:'ООО «ДОМ НА МОЙКЕ»', short:'Дом на Мойке', full:'ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "ДОМ НА МОЙКЕ"', ogrn:'1027810251523', kpp:'783801001',
+  risk:'UNKNOWN', zsk:'GREEN', status:'действует', statusDate:'11.06.2026', reg:'24.04.2002', age:'24 года', report:'31.07.2026', size:'Малые предприятия',
+  okved:'68.20.29 — Аренда и управление собственным или арендованным нежилым недвижимым имуществом', okvedOther:2, address:'190068, г. Санкт-Петербург, ул. Большая Морская, д. 54, литера А', email:null, tax:'ОСНО',
+  fin:[{y:2023,pr:83.8,pf:27.8,cap:-1816.9,stl:68.6,ca:2.1},{y:2024,pr:120.6,pf:62.5,cap:-1821.0,stl:128.9,ca:2.7},{y:2025,pr:139.9,pf:80.0,cap:-1814.1,stl:135.4,ca:1.6}],
+  trend:'+67 % за 2023–2025', coef:null,
+  ep:{active:[],closed:[{n:'…',d:'—',a:null}],closedTotal:3}, arb:{total:10,sum:'2,1 млн ₽',pf:6,pfA:'2,1 млн ₽',pa:0,pp:0,df:4,dfA:'2,0 тыс. ₽',da:0,dp:0}, insp:null,
+  regNeg:[], regPos:12, auth:{name:'Маслов Владимир Вадимович',pos:'генеральный директор',since:'19.03.2017',recent:false},
+  founders:[{name:'Компания Брикстоун Реал Истэйт Фандз Сикав П.Л.С.',share:'73 %',since:'27.02.2013',recent:false},{name:'Компания Лестерболл Коммершиал Инкорпорейтед',share:'26 %',since:'10.05.2018',recent:false}],
+  licenses:[{name:'Строительство зданий и сооружений',status:'бессрочная'}], related:8, headline:null,
+  facts:[
+    {slot:'Оценка банка',pol:'gap',text:'Оценка банка: уровень риска не определён; ЗСК зелёный.',refs:['baseInfo.riskLevel','zskRiskLevel']},
+    {slot:'Финансы',pol:'negative',text:'Отрицательный собственный капитал: −1,8 млрд ₽ (2025).',refs:['finReports[year=2025].liabilities.capitals']},
+    {slot:'Юридические события',pol:'info',text:'Исполнительные производства: 3 завершённых, активных нет.',refs:['executionProceedings[]']},
+    {slot:'Реестры ФНС',pol:'positive',text:'Проверено 12 реестров ФНС, негативных отметок нет.',refs:['reputationalRisks.positive[]']},
+    {slot:'Финансы',pol:'negative',text:'Краткосрочные обязательства (135,4 млн ₽) превышают оборотные активы (1,6 млн ₽) за 2025.',refs:['finReports[year=2025].liabilities.shortTermLiabilities.total','finReports[year=2025].assets.currentAssets.total']}
+  ],
+  gaps:[{text:'уровень риска банка не определён',ref:'baseInfo.riskLevel'},{text:'сведений о проверках в отчёте нет',ref:'inspections'}],
+  steps:[st('fin','отрицательный капитал, долговая нагрузка')],
+  cmp:{bank:[['gap','уровень риска не определён; ЗСК зелёный']],fin:[['negative','Отрицательный капитал: −1,8 млрд ₽ (2025)'],['negative','Краткосрочные обязательства 135,4 млн ₽ выше оборотных активов 1,6 млн ₽'],['positive','Выручка растёт: 83,8 → 139,9 млн ₽, +67 %']],legal:[['info','3 завершённых исполнительных производства, активных нет'],['info','Арбитраж: 10 дел, как истец 6, как ответчик 4; открытых нет']],reg:[['positive','Проверено 12 реестров, отметок нет']],gapsRow:[['gap','Оценка банка не определена'],['gap','Нет сведений о проверках']]}
+},
+'5032257375': {
+  inn:'5032257375', name:'ООО «МАКСМАРКЕТ»', short:'Максмаркет', full:'ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "МАКСМАРКЕТ"', ogrn:'1165032060050', kpp:'503201001',
+  risk:'LOW', zsk:'GREEN', status:'действует', statusDate:'31.07.2026', reason:'Юридическое лицо признано несостоятельным (банкротом), открыто конкурсное производство', reg:'03.10.2016', age:'9 лет', report:'31.07.2026', size:null,
+  okved:'73.11 — Деятельность рекламных агентств', okvedOther:23, address:'143081, Московская обл., Одинцовский г. о., д. Солослово, тер. КИЗ Горки-8, д. 275, помещ. 37', email:'info@maxmarket24.ru', tax:'УСН',
+  fin:[{y:2023,pr:116257.9,pf:null,cap:365.1,stl:null,ca:null}], trend:'тренд оценить нельзя', coef:null,
+  ep:{active:[{n:'2014965/23/50061-ИП',d:'2023',a:'10,0 тыс. ₽'},{n:'2014964/23/50061-ИП',d:'2023',a:'10,0 тыс. ₽'},{n:'1199301/24/50061-ИП',d:'2024',a:'1,5 тыс. ₽'}],activeTotal:54,activeSum:'4,0 млн ₽',closed:[],closedTotal:453},
+  arb:{total:278,sum:'3,0 млрд ₽',pf:20,pfA:'388,1 млн ₽',pa:0,pp:0,df:258,dfA:'2,6 млрд ₽',da:0,dp:0}, insp:{total:9,unknown:1},
+  regNeg:[{code:'liquidationStatus',pol:'negative',text:'Находится в реестре организаций в процедуре банкротства.'},{code:'fnsBlocking',pol:'negative',text:'Действуют решения ФНС о приостановлении операций по счетам.'},{code:'invalidAddress',pol:'negative',text:'В ЕГРЮЛ внесена запись о недостоверности сведений об адресе.'},{code:'invalidRegistrationData',pol:'negative',text:'В ЕГРЮЛ внесена запись о недостоверности регистрационных данных.'},{code:'executionProceedings',pol:'dup',text:'Есть действующие исполнительные производства.'},{code:'arbitrationDefendant',pol:'dup',text:'Есть арбитражные дела, в которых выступает ответчиком.'}],
+  regPos:9, auth:{name:'Москвина Ирина Витальевна',pos:'конкурсный управляющий / руководитель',since:'09.02.2026',recent:true},
+  founders:[{name:'Ильин Максим Игоревич',share:'90 %',since:'03.10.2016',recent:false},{name:'Якушин Виталий Анатольевич',share:'10 %',since:'26.12.2022',recent:false}], licenses:[], related:14,
+  headline:'Организация в процедуре банкротства (31.07.2026)',
+  facts:[
+    {slot:'Оценка банка',pol:'info',text:'Оценка банка: риск низкий, ЗСК зелёный.',refs:['baseInfo.riskLevel','zskRiskLevel']},
+    {slot:'Финансы',pol:'gap',text:'Выручка есть только за 2023 (116,3 млрд ₽); тренд оценить нельзя.',refs:['finReports[year=2023].common.proceeds']},
+    {slot:'Юридические события',pol:'negative',text:'Активные исполнительные производства: 54 на 4,0 млн ₽.',refs:['executionProceedings[].active','executionProceedings[].amount']},
+    {slot:'Реестры ФНС',pol:'negative',text:'В реестре организаций в процедуре банкротства; действуют блокировки счетов по решению ФНС; в реестре организаций с фиктивным адресом; отметка ФНС о недостоверных регистрационных данных.',refs:['reputationalRisks.negative[code=liquidationStatus]','reputationalRisks.negative[code=fnsBlocking]','reputationalRisks.negative[code=invalidAddress]','reputationalRisks.negative[code=invalidRegistrationData]']},
+    {slot:'Дополнительно',pol:'caution',text:'Смена руководителя: Москвина И.В. с 09.02.2026.',refs:['foundersInfo.authPerson.positionDate']}
+  ],
+  gaps:[{text:'тренд выручки (данные только за 2023)',ref:'finReports[].common.proceeds'}],
+  steps:[st('status','банкротство'),st('ep','54 активных исполнительных производства'),st('block'),st('addr','фиктивный адрес, недостоверные данные'),st('arb','как ответчик 258 дел'),st('finmiss','выручка только за один год'),st('change','смена руководителя')],
+  cmp:{bank:[['info','риск низкий, ЗСК зелёный']],fin:[['gap','Выручка только за 2023 (116,3 млрд ₽); тренд оценить нельзя']],legal:[['negative','Активные исполнительные производства: 54 на 4,0 млн ₽'],['caution','Арбитраж: как ответчик 258 дел, как истец 20'],['info','Проверок: 9, нарушений не выявлено, по 1 результат неизвестен']],reg:[['negative','В процедуре банкротства'],['negative','Блокировки счетов ФНС'],['negative','Фиктивный адрес'],['negative','Недостоверные регистрационные данные']],gapsRow:[['gap','Тренд выручки: данные за один год']]}
+},
+'2100006761': {
+  inn:'2100006761', name:'ООО «РАДО АЛАТЫРЬ КС»', short:'Радо Алатырь', full:'ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "РАДИО АЛАТЫРЬ КАЗАЧИЙ СПАС"', ogrn:'1232100003266', kpp:'210001001',
+  risk:'LOW', zsk:'GREEN', status:'действует', statusDate:'02.08.2026', reason:'Регистрирующим органом принято решение о предстоящем исключении юридического лица из ЕГРЮЛ', reg:'05.05.2023', age:'3 года', report:'05.08.2026', size:'Микропредприятие',
+  okved:'60.10 — Деятельность в области радиовещания', okvedOther:9, address:'429820, Чувашская Республика, г. Алатырь, ул. Московская, д. 101, ком. 7', email:null, tax:'УСН',
+  fin:[{y:2023,pr:0.037,pf:null,cap:0.010,stl:null,ca:null},{y:2024,pr:0.050,pf:null,cap:0.010,stl:null,ca:null},{y:2025,pr:0.293,pf:null,cap:-0.014,stl:null,ca:null}],
+  trend:'+692 % за 2023–2025', coef:null,
+  ep:{active:[],closed:[]}, arb:null, insp:{total:2,unknown:0},
+  regNeg:[], regPos:12, auth:{name:'Веревка Владислав Андреевич',pos:'директор',since:'25.06.2025',recent:true},
+  founders:[{name:'Кучерук-Наместникова Татьяна Викторовна',share:'50 %',since:'26.03.2025',recent:true},{name:'Веревка Владислав Андреевич',share:'50 %',since:'26.03.2025',recent:true}],
+  licenses:[{name:'Телевизионное вещание и радиовещание',status:'действует'},{name:'Услуги связи',status:'действует'}], related:4,
+  headline:'ФНС приняла решение о предстоящем исключении из ЕГРЮЛ (02.08.2026)',
+  facts:[
+    {slot:'Оценка банка',pol:'info',text:'Оценка банка: риск низкий, ЗСК зелёный.',refs:['baseInfo.riskLevel','zskRiskLevel']},
+    {slot:'Финансы',pol:'negative',text:'Отрицательный собственный капитал: −14,0 тыс. ₽ (2025).',refs:['finReports[year=2025].liabilities.capitals']},
+    {slot:'Юридические события',pol:'positive',text:'Исполнительные производства не найдены.',refs:['executionProceedings']},
+    {slot:'Реестры ФНС',pol:'positive',text:'Проверено 12 реестров ФНС, негативных отметок нет.',refs:['reputationalRisks.positive[]']},
+    {slot:'Дополнительно',pol:'caution',text:'Смена руководителя: Веревка В.А. с 25.06.2025.',refs:['foundersInfo.authPerson.positionDate']}
+  ],
+  gaps:[],
+  steps:[st('status','предстоящее исключение из ЕГРЮЛ'),st('fin','отрицательный капитал'),st('change','смена руководителя и учредителей')],
+  cmp:{bank:[['info','риск низкий, ЗСК зелёный']],fin:[['negative','Отрицательный капитал: −14,0 тыс. ₽ (2025)'],['positive','Выручка растёт: 37,0 → 293,0 тыс. ₽']],legal:[['positive','Исполнительные производства не найдены'],['positive','Арбитражные дела не найдены'],['info','Проверок: 2, нарушений не выявлено']],reg:[['positive','Проверено 12 реестров, отметок нет']],gapsRow:[['positive','Все разделы отчёта заполнены']]}
+},
+'2311304742': {
+  inn:'2311304742', name:'ООО «БИЛД-ЮГ»', short:'Билд-Юг', full:'ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "БИЛД-ЮГ"', ogrn:'1202300022430', kpp:'231101001',
+  risk:'LOW', zsk:'GREEN', status:'действует', statusDate:'02.08.2026', reason:'Принято решение об изменении места нахождения', reg:'30.03.2020', age:'6 лет', report:'27.08.2026', size:'Средние предприятия',
+  okved:'41.20 — Строительство жилых и нежилых зданий', okvedOther:39, address:'350047, Краснодарский край, г. Краснодар, ул. Красных Партизан, д. 249, офис 300', email:'build-yug@yandex.ru', tax:'ОСНО',
+  fin:[{y:2023,pr:765.1,pf:-32.2,cap:11.9,stl:1211.0,ca:1293.3},{y:2024,pr:1055.8,pf:14.1,cap:24.7,stl:1613.1,ca:1815.0}],
+  trend:'+38 % за 2023–2024', coef:null,
+  ep:{active:[{n:'149709/26/23027-ИП',d:'2026',a:null}],closed:[{n:'…',d:'—',a:null}],closedTotal:1},
+  arb:{total:11,sum:'54,1 млн ₽',pf:3,pfA:'51,4 млн ₽',pa:0,pp:0,df:6,dfA:'2,7 млн ₽',da:1,dp:1}, insp:{total:4,unknown:0,canceled:1},
+  regNeg:[{code:'fnsBlocking',pol:'negative',text:'Действуют решения ФНС о приостановлении операций по счетам.'},{code:'invalidAddress',pol:'negative',text:'В ЕГРЮЛ внесена запись о недостоверности сведений об адресе.'},{code:'invalidRegistrationData',pol:'negative',text:'В ЕГРЮЛ внесена запись о недостоверности регистрационных данных.'},{code:'massOkved',pol:'info',text:'Большое количество кодов ОКВЭД.'},{code:'executionProceedings',pol:'dup',text:'Есть действующие исполнительные производства.'},{code:'arbitrationDefendant',pol:'dup',text:'Есть арбитражные дела как ответчик.'}],
+  regPos:11, auth:{name:'Панасенко Юрий Викторович',pos:'директор',since:'22.01.2021',recent:false},
+  founders:[{name:'Панасенко Юрий Викторович',share:'100 %',since:'22.01.2021',recent:false}], licenses:[], related:0, headline:null,
+  facts:[
+    {slot:'Оценка банка',pol:'info',text:'Оценка банка: риск низкий, ЗСК зелёный.',refs:['baseInfo.riskLevel','zskRiskLevel']},
+    {slot:'Финансы',pol:'positive',text:'Выручка растёт: 765,1 млн ₽ (2023) → 1,1 млрд ₽ (2024), +38 %.',refs:['finReports[year=2023].common.proceeds','finReports[year=2024].common.proceeds']},
+    {slot:'Юридические события',pol:'negative',text:'Активные исполнительные производства: 1; по 1 сумма не указана.',refs:['executionProceedings[].active']},
+    {slot:'Реестры ФНС',pol:'negative',text:'Действуют блокировки счетов по решению ФНС; в реестре организаций с фиктивным адресом; отметка ФНС о недостоверных регистрационных данных.',refs:['reputationalRisks.negative[code=fnsBlocking]','reputationalRisks.negative[code=invalidAddress]','reputationalRisks.negative[code=invalidRegistrationData]']},
+    {slot:'Юридические события',pol:'negative',text:'Открытые арбитражные дела как ответчик: 1.',refs:['arbitrationByStatus.defandantArbitration.defandantArbitrationPending.dpCount']}
+  ],
+  gaps:[],
+  steps:[st('ep','активное исполнительное производство'),st('arb','открытое дело как ответчик'),st('block'),st('addr','фиктивный адрес'),st('reason','изменение места нахождения')],
+  cmp:{bank:[['info','риск низкий, ЗСК зелёный']],fin:[['positive','Выручка растёт: +38 % (2023–2024)'],['positive','Прибыль растёт: −32,2 → 14,1 млн ₽']],legal:[['negative','Активные исполнительные производства: 1, сумма не указана'],['negative','Открытые дела как ответчик: 1'],['info','Проверок: 4, нарушений не выявлено']],reg:[['negative','Блокировки счетов ФНС'],['negative','Фиктивный адрес'],['negative','Недостоверные регистрационные данные']],gapsRow:[['positive','Все разделы отчёта заполнены']]}
+},
+'7104080194': {
+  inn:'7104080194', name:'ООО «АВАНГАРД Т»', short:'Авангард Т', full:'ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "АВАНГАРД Т"', ogrn:'1187154022362', kpp:'710401001',
+  risk:'LOW', zsk:'GREEN', status:'действует', statusDate:'02.08.2026', reg:'26.09.2018', age:'7 лет', report:'05.08.2026', size:'Крупные предприятия',
+  okved:'46.32 — Торговля оптовая мясом и мясными продуктами', okvedOther:23, address:'300024, Тульская обл., г. Тула, пр-д Ханинский, д. 29, офис 4', email:null, tax:'ОСНО',
+  fin:[{y:2023,pr:2990.8,pf:34.6,cap:64.7,stl:96.8,ca:143.5},{y:2024,pr:3174.9,pf:43.4,cap:81.2,stl:155.7,ca:224.4},{y:2025,pr:2594.6,pf:7.6,cap:82.5,stl:119.4,ca:171.3}],
+  trend:'−13 % за 2023–2025', coef:null,
+  ep:{active:[],closed:[{n:'…',d:'—',a:null}],closedTotal:26}, arb:{total:2,sum:'3,4 млн ₽',pf:2,pfA:'3,4 млн ₽',pa:0,pp:0,df:0,da:0,dp:0}, insp:null,
+  regNeg:[], regPos:12, auth:{name:'Былдин Андрей Николаевич',pos:'директор',since:'26.09.2018',recent:false},
+  founders:[{name:'Былдин Андрей Николаевич',share:'97 %',since:'03.03.2025',recent:true},{name:'Агафонова Татьяна Евгеньевна',share:'2 %',since:'08.10.2024',recent:true}], licenses:[], related:5, headline:null,
+  facts:[
+    {slot:'Оценка банка',pol:'info',text:'Оценка банка: риск низкий, ЗСК зелёный.',refs:['baseInfo.riskLevel','zskRiskLevel']},
+    {slot:'Финансы',pol:'negative',text:'Выручка снижается: 3,0 млрд ₽ (2023) → 2,6 млрд ₽ (2025), −13 %.',refs:['finReports[year=2023].common.proceeds','finReports[year=2025].common.proceeds']},
+    {slot:'Юридические события',pol:'info',text:'Исполнительные производства: 26 завершённых, активных нет.',refs:['executionProceedings[]']},
+    {slot:'Реестры ФНС',pol:'positive',text:'Проверено 12 реестров ФНС, негативных отметок нет.',refs:['reputationalRisks.positive[]']},
+    {slot:'Финансы',pol:'negative',text:'Прибыль снижается: 34,6 млн ₽ (2023) → 7,6 млн ₽ (2025).',refs:['finReports[year=2023].common.profit','finReports[year=2025].common.profit']}
+  ],
+  gaps:[{text:'сведений о проверках в отчёте нет',ref:'inspections'}],
+  steps:[st('fin','выручка и прибыль снижаются'),st('change','смена состава учредителей')],
+  cmp:{bank:[['info','риск низкий, ЗСК зелёный']],fin:[['negative','Выручка снижается: −13 % (2023–2025)'],['negative','Прибыль снижается: 34,6 → 7,6 млн ₽']],legal:[['info','26 завершённых исполнительных производств, активных нет'],['info','Арбитраж: 2 дела как истец; открытых как ответчик нет']],reg:[['positive','Проверено 12 реестров, отметок нет']],gapsRow:[['gap','Нет сведений о проверках']]}
+},
+'4720028039': {
+  inn:'4720028039', name:'ООО «ЛЗСО»', short:'ЛЗСО', full:'ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "ЛОМОНОСОВСКИЙ ЗАВОД СУДОВОГО ОБОРУДОВАНИЯ"', ogrn:'1084720000199', kpp:'472501001',
+  risk:'LOW', zsk:'GREEN', status:'действует', statusDate:'08.05.2026', reg:'06.02.2008', age:'18 лет', report:'10.08.2026', size:null,
+  okved:'30.11 — Строительство кораблей, судов и плавучих конструкций', okvedOther:2, address:'188530, Ленинградская обл., Ломоносовский р-н, д. Сойкино, ул. Парковая, д. 1А', email:null, tax:'ОСНО',
+  fin:[{y:2023,pr:0,pf:null,cap:31.6,stl:null,ca:null}], trend:null, coef:null,
+  ep:{active:[],closed:[]}, arb:{total:4,sum:'7,2 млн ₽',pf:1,pfA:'3,5 млн ₽',pa:0,pp:0,df:3,dfA:'3,6 млн ₽',da:0,dp:0}, insp:null,
+  regNeg:[{code:'fnsBlocking',pol:'negative',text:'Действуют решения ФНС о приостановлении операций по счетам.'},{code:'invalidAddress',pol:'negative',text:'В ЕГРЮЛ внесена запись о недостоверности сведений об адресе.'},{code:'invalidRegistrationData',pol:'negative',text:'В ЕГРЮЛ внесена запись о недостоверности регистрационных данных.'},{code:'invalidAuthpersonsData',pol:'negative',text:'В ЕГРЮЛ внесена запись о недостоверности сведений о руководителе.'}],
+  regPos:12, auth:{name:'Зарицкая Светлана Юрьевна',pos:'директор',since:'23.04.2021',recent:false},
+  founders:[{name:'Зарицкая Светлана Юрьевна',share:'63 %',since:'26.05.2014',recent:false},{name:'Радзевич Вера Николаевна',share:'25 %',since:'06.02.2008',recent:false},{name:'Радзевич Владислав Юрьевич',share:'12 %',since:'06.02.2008',recent:false}], licenses:[], related:4, headline:null,
+  facts:[
+    {slot:'Оценка банка',pol:'info',text:'Оценка банка: риск низкий, ЗСК зелёный.',refs:['baseInfo.riskLevel','zskRiskLevel']},
+    {slot:'Финансы',pol:'gap',text:'Отчётность за 2023 без показателей выручки и прибыли — оценить финансы нельзя.',refs:['finReports[year=2023].common']},
+    {slot:'Юридические события',pol:'caution',text:'Арбитраж: как ответчик 3 дела, как истец 1.',refs:['arbitrationByStatus']},
+    {slot:'Реестры ФНС',pol:'negative',text:'Действуют блокировки счетов по решению ФНС; в реестре организаций с фиктивным адресом; отметка ФНС о недостоверных регистрационных данных; отметка ФНС о недостоверных данных руководителя.',refs:['reputationalRisks.negative[code=fnsBlocking]','reputationalRisks.negative[code=invalidAddress]','reputationalRisks.negative[code=invalidRegistrationData]','reputationalRisks.negative[code=invalidAuthpersonsData]']}
+  ],
+  gaps:[{text:'отчётность без показателей выручки и прибыли',ref:'finReports[].common'},{text:'сведений о проверках в отчёте нет',ref:'inspections'}],
+  steps:[st('finmiss','отчётность без показателей'),st('arb','как ответчик 3 дела'),st('block'),st('addr','фиктивный адрес'),st('auth')],
+  cmp:{bank:[['info','риск низкий, ЗСК зелёный']],fin:[['gap','Отчётность за 2023 без выручки и прибыли; оценить нельзя']],legal:[['caution','Арбитраж: как ответчик 3, как истец 1'],['positive','Исполнительные производства не найдены']],reg:[['negative','Блокировки счетов ФНС'],['negative','Фиктивный адрес'],['negative','Недостоверные регистрационные данные'],['negative','Недостоверные данные руководителя']],gapsRow:[['gap','Финансы: отчётность без показателей'],['gap','Нет сведений о проверках']]}
+}};
+
+const SETS = {
+  empty:[], one:['9721159668'], three:['9721159668','1660266560','9714079997'],
+  ten:['9721159668','1660266560','9714079997','592061218009','7826131151','5032257375','2100006761','2311304742','7104080194','4720028039']
+};
+const ROWS = [['Оценка банка','bank'],['Финансы','fin'],['Юридические события','legal'],['Реестры ФНС','reg'],['Полнота данных','gapsRow']];
+const METRICS = [['pr','Выручка','finReports[].common.proceeds'],['pf','Прибыль','finReports[].common.profit'],['cap','Капитал и резервы','finReports[].liabilities.capitals'],['stl','Краткосрочные обязательства','finReports[].liabilities.shortTermLiabilities.total'],['ca','Оборотные активы','finReports[].assets.currentAssets.total']];
+/* Категориальная палитра линий: без красного/зелёного/оранжевого, чтобы цвет линии не читался как оценка */
+const PALETTE = ['#0b1f35','#3b5bdb','#7048e8','#1098ad','#5c7cfa','#495057','#845ef7','#0c8599','#364fc7','#868e96'];
+
+/* ---------- Состояние ---------- */
+const S = { session:[], selected:null, tab:'summary', llmOff:false, epView:'active', deal:{goal:null,amount:null},
+  filter:'all', focus:[], focusMode:false, expanded:false, metric:'pr', scale:'abs', view:'overlay', hiddenLines:new Set() };
+
+/* ---------- Утилиты ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const status = (label,color) => `<span class="status ${color}">${label}</span>`;
+const riskStatus = c => status(...RISK[c.risk]);
+const zskStatus = c => status(...ZSK[c.zsk]);
+const ref = r => `<span class="ref" data-ref="${esc(r)}" title="${esc(r)}">${esc(r)}</span>`;
+const ico = (pol,size) => `<span class="ico ${pol}${size?' '+size:''}">${P[pol]||'i'}</span>`;
+const fmt1 = v => v.toLocaleString('ru-RU',{minimumFractionDigits:1,maximumFractionDigits:1});
+const mln = v => v==null ? '<span class="tertiary">нет данных</span>' : (Math.abs(v)>=1000 ? fmt1(v/1000)+' млрд ₽' : Math.abs(v)<1 ? fmt1(v*1000)+' тыс. ₽' : fmt1(v)+' млн ₽');
+const mlnShort = v => Math.abs(v)>=1000 ? fmt1(v/1000)+' млрд' : Math.abs(v)<1 ? Math.round(v*1000)+' тыс' : (Math.abs(v)>=100?Math.round(v):fmt1(v))+' млн';
+const worst = items => items.reduce((w,[p])=>POL_ORDER[p]<POL_ORDER[w]?p:w,'positive');
+const cs = () => S.session.map(i=>DB[i]);
+const dealCell = c => {
+  const amt=S.deal.amount; const last=[...c.fin].reverse().find(f=>f.pr);
+  if(!last) return ['gap','Выручка неизвестна; соразмерность оценить нельзя'];
+  return amt>last.pr ? ['caution',`Сумма сделки (${mln(amt).replace(/<[^>]+>/g,'')}) превышает выручку за ${last.y} (${mln(last.pr)})`] : ['info',`Сумма сделки в пределах выручки за ${last.y} (${mln(last.pr)})`];
+};
+const cellItems = (c,k) => k==='deal' ? [dealCell(c)] : c.cmp[k];
+const rows = () => S.deal.amount ? [...ROWS,['Соразмерность сделки','deal']] : ROWS;
+/* Счётчики: сигналы строк сравнения + сигналы слота «Дополнительно» (возраст, смены руководителя/учредителя), которые в таблицу не входят */
+const counts = c => { const all=[...rows().flatMap(([,k])=>cellItems(c,k)), ...c.facts.filter(f=>f.slot==='Дополнительно').map(f=>[f.pol,f.text])]; return {neg:all.filter(([p])=>p==='negative').length, cau:all.filter(([p])=>p==='caution').length, gap:c.gaps.length}; };
+const topFact = c => c.facts.slice(1).find(f=>f.pol==='negative') || c.facts.slice(1).find(f=>f.pol==='caution') || c.facts.slice(1).find(f=>f.pol==='gap') || {pol:'positive',text:'Негативных сигналов по данным отчёта нет.'};
+
+/* ---------- Панель сессии (чипы) ---------- */
+function renderSession(){
+  const bar=$('#sessionBar');
+  if(!S.session.length){ bar.innerHTML=`<span class="label">Контрагенты в сессии</span><span class="tertiary small">пока никого — напишите ИНН в чат</span>`; return; }
+  bar.innerHTML = `<span class="label">Контрагенты</span>` + S.session.map(inn=>{ const c=DB[inn]; return `
+    <span class="cchip${inn===S.selected&&S.tab!=='compare'?' active':''}" data-inn="${inn}" title="${esc(c.name)} · ИНН ${inn} · ${RISK[c.risk][0]}">
+      <span class="dot ${RISK[c.risk][1]}"></span><span class="name">${esc(c.short)}</span>${c.headline?'<span class="warn" title="'+esc(c.headline)+'">!</span>':''}
+      <button class="x" title="Удалить из сессии" data-del="${inn}">×</button></span>`; }).join('')
+    + (S.deal.goal||S.deal.amount ? `<span class="cchip deal" title="Контекст сделки; изменить — в чате"><span class="name">Сделка: ${[S.deal.goal, S.deal.amount?mln(S.deal.amount).replace(/<[^>]+>/g,''):null].filter(Boolean).join(' · ')}</span><button class="x" data-deldeal="1" title="Сбросить контекст">×</button></span>` : '')
+    + `<span class="counter">${S.session.length} из ${MAX}${S.session.length>1?' · <a href="#" data-clear="1" style="color:inherit">очистить</a>':''}</span>`;
+}
+
+/* ---------- Рабочая область ---------- */
+function renderWork(){
+  const empty=S.session.length===0;
+  $('#workEmpty').classList.toggle('hidden',!empty); $('#work').classList.toggle('hidden',empty);
+  if(empty) return;
+  if(!DB[S.selected]||!S.session.includes(S.selected)) S.selected=S.session[0];
+  const many=S.session.length>1;
+  $('#tabCompare').classList.toggle('hidden',!many); $('#cmpBadge').textContent=S.session.length;
+  if(!many&&S.tab==='compare') S.tab='summary';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===S.tab));
+  const c=DB[S.selected];
+  $('#subject').innerHTML = S.tab==='compare'
+    ? `<div class="title"><h2>Сравнение ${S.session.length} контрагентов</h2></div><div class="small muted">Единый набор критериев. Порядок строк — порядок добавления в сессию; сравнение не ранжирует компании.</div>`
+    : `<div class="title"><h2>${esc(c.name)}</h2>${riskStatus(c)}${zskStatus(c)}</div><div class="small muted">ИНН <span class="mono">${c.inn}</span> · ОГРН <span class="mono">${c.ogrn}</span> · ${c.status} · зарегистрирована ${c.reg} · отчёт от ${c.report}</div>`;
+  document.title=(S.tab==='compare'?'Сравнение':c.name)+' — Проверка контрагентов';
+  $('#tabBody').innerHTML = S.tab==='summary'?renderSummary(c):S.tab==='card'?renderCard(c):renderCompare();
+}
+
+function renderSummary(c){
+  let h='';
+  if(c.headline) h+=`<div class="alert">${ico('negative')} ${esc(c.headline)}</div>`;
+  h+=c.facts.map(f=>`<div class="fact ${f.pol}" data-ref="${esc(f.refs[0])}">${ico(f.pol)}<div><div class="slot">${f.slot}</div><div class="text">${esc(f.text)}</div><div>${f.refs.map(ref).join('')}</div></div></div>`).join('');
+  if(c.gaps.length) h+=`<div class="plate gap"><h2>${ico('gap','sm')} Оценить нельзя</h2><div class="muted">Недостаточно данных для оценки: ${c.gaps.map(g=>esc(g.text)).join('; ')}.</div><div>${c.gaps.map(g=>ref(g.ref)).join('')}</div></div>`;
+  h+=`<div class="plate attention"><h2>Что проверить до сделки</h2><ol>${c.steps.map(s=>`<li>${esc(s.text)} <span class="why">(${esc(s.why)})</span></li>`).join('')}</ol><div class="small muted" style="margin-top:8px">Рекомендации — из фиксированной таблицы «сигнал → шаг». Решение о сделке остаётся за вами.</div></div>`;
+  h+=`<div class="foot">${S.llmOff?'Текст сформирован по правилам без языковой модели.':'Формулировки уточнены языковой моделью по фактам правил. <span class="spinner" title="уточняю формулировки"></span>'}</div>`;
+  return h;
+}
+
+function renderCard(c){
+  const fin=c.fin.some(f=>f.pr!=null);
+  const maxPr=Math.max(...c.fin.map(f=>f.pr||0),1e-9);
+  const chart = fin ? `
+    <div class="legend"><span><i style="background:#0b1f35"></i>Выручка</span><span><i style="background:#8c99a6"></i>Прибыль</span></div>
+    <div class="chart">${c.fin.map(f=> f.pr==null||f.pr===0
+        ? `<div class="yr"><div class="nodata">нет данных</div></div>`
+        : `<div class="yr"><div class="bars"><div class="bar" style="height:${Math.max(6,f.pr/maxPr*100)}%"><span>${mlnShort(f.pr)}</span></div><div class="bar profit" style="height:${Math.max(3,Math.max(0,f.pf||0)/maxPr*100)}%"></div></div></div>`).join('')}</div>
+    <div class="chart-x">${c.fin.map(f=>`<div>${f.y}</div>`).join('')}</div>
+    <table style="margin-top:12px"><tr><th>млн ₽</th>${c.fin.map(f=>`<th class="num">${f.y}</th>`).join('')}</tr>
+      ${METRICS.map(([k,n,r])=>`<tr><td>${n}<br>${ref(r)}</td>${c.fin.map(f=>`<td class="num">${f[k]==null?'<span class="tertiary">нет данных</span>':f[k]===0?'0':(k==='pf'&&Math.abs(f[k])<0.01?'1,0 тыс. ₽':fmt1(f[k]))}</td>`).join('')}</tr>`).join('')}
+    </table>
+    ${c.coef?`<div class="small muted" style="margin-top:8px">Коэффициенты ${c.coef.y}: устойчивость ${c.coef.s} · платёжеспособность ${c.coef.sol} · рентабельность ${c.coef.pf} ${ref('coefficient')}</div>`:''}`
+    : `<div class="plate gap" style="margin-top:8px">${ico('gap','sm')} ${c.isIP?'ИП не публикует бухгалтерскую отчётность — оценить финансы по отчёту нельзя.':c.fin.length?'Отчётность без показателей выручки и прибыли — оценить финансы нельзя.':'Финансовая отчётность в отчёте отсутствует — оценить финансы нельзя.'} ${ref('finReports')}</div>`;
+
+  const epActive=c.ep.activeTotal??c.ep.active.length, epClosed=c.ep.closedTotal??c.ep.closed.length;
+  const epRows=(S.epView==='active'?c.ep.active:c.ep.closed);
+  const ep=(epActive+epClosed)===0 ? `<div class="muted">Исполнительные производства не найдены. ${ref('executionProceedings')}</div>` : `
+    <div class="seg" style="margin:8px 0"><button class="${S.epView==='active'?'on':''}" data-ep="active">Активные (${epActive})</button><button class="${S.epView==='closed'?'on':''}" data-ep="closed">Завершённые (${epClosed})</button></div>
+    ${S.epView==='active'&&c.ep.activeSum?`<div class="small muted" style="margin-bottom:6px">Сумма по активным: ${c.ep.activeSum}</div>`:''}
+    <table><tr><th>Номер</th><th>Дата</th><th class="num">Сумма</th></tr>${epRows.length?epRows.map(e=>`<tr><td class="mono">${e.n}</td><td>${e.d}</td><td class="num">${e.a??'<span class="tertiary">не указана</span>'}</td></tr>`).join(''):'<tr><td colspan="3" class="muted">Нет записей</td></tr>'}</table>
+    ${(S.epView==='closed'&&epClosed>c.ep.closed.length)||(S.epView==='active'&&epActive>c.ep.active.length)?`<div class="small muted" style="margin-top:6px">Показано ${epRows.length} из ${S.epView==='closed'?epClosed:epActive} · страницы 1 2 …</div>`:''}`;
+
+  const a=c.arb;
+  const arb=!a ? `<div class="muted">Арбитражные дела не найдены. ${ref('arbitrationByStatus')}</div>` : `
+    <div class="small muted" style="margin-bottom:6px">Всего ${a.total} дел на ${a.sum}; роли ниже — «из них».</div>
+    <table><tr><th>Роль</th><th class="num">Завершено</th><th class="num">Обжаловано</th><th class="num">Открыто</th></tr>
+      <tr><td>Как истец</td><td class="num">${a.pf}${a.pfA?` · ${a.pfA}`:''}</td><td class="num">${a.pa}</td><td class="num">${a.pp}</td></tr>
+      <tr><td>Как ответчик ${a.dp>0?ico('negative','sm'):a.df>=2&&a.df+a.da+a.dp>a.pf+a.pa+a.pp?ico('caution','sm'):''}</td><td class="num">${a.df}${a.dfA?` · ${a.dfA}`:''}</td><td class="num">${a.da}</td><td class="num">${a.dp>0?`<b>${a.dp}${a.dpA?' · '+a.dpA:''}</b>`:a.dp}</td></tr></table>
+    <div>${ref('arbitrationByStatus.commonCount')}${ref('arbitrationByStatus.defandantArbitration.defandantArbitrationPending.dpCount')}</div>`;
+
+  const insp=c.insp ? `<div class="muted">Проверок: ${c.insp.total}, нарушений не выявлено${c.insp.unknown?`, по ${c.insp.unknown} результат неизвестен`:''}${c.insp.canceled?`, ${c.insp.canceled} отменена`:''}. ${ref('inspections[].inspectionStatus')}</div>` : `<div class="muted">${ico('gap','sm')} Сведений о проверках в отчёте нет. ${ref('inspections')}</div>`;
+
+  const regNeg=c.regNeg.filter(r=>r.pol!=='dup'), regDup=c.regNeg.filter(r=>r.pol==='dup');
+  const sigCount=b=>({A:c.risk==='UNKNOWN'?1:0,B:(c.headline?1:0)+(/меньше года|^1 год/.test(c.age)?1:0),C:c.facts.filter(f=>f.slot==='Финансы'&&f.pol!=='info'&&f.pol!=='positive').length,D:c.facts.filter(f=>f.slot==='Юридические события'&&(f.pol==='negative'||f.pol==='caution')).length,E:regNeg.filter(r=>r.pol!=='info').length,F:(c.auth&&c.auth.recent?1:0)+(c.founders.some(f=>f.recent)?1:0)}[b]);
+  const sc=b=>sigCount(b)?`<span class="badge">${sigCount(b)} сигнал${sigCount(b)>1?'а':''}</span>`:'';
+  const na='<span class="tertiary">не указано</span>';
+
+  return `
+  ${c.headline?`<div class="alert">${ico('negative')} ${esc(c.headline)} ${ref('status.reasonName')}</div>`:''}
+  <details class="block" id="blk-A" open><summary>A. Оценка банка ${sc('A')}</summary><div class="body">
+    <div class="kv"><div class="k">Уровень риска банка</div><div class="v">${riskStatus(c)} ${c.risk==='UNKNOWN'?`<span class="sig">${ico('gap','sm')} пробел</span>`:''} ${ref('baseInfo.riskLevel')}</div>
+    <div class="k">Знай своего клиента (ЗСК)</div><div class="v">${zskStatus(c)} ${ref('zskRiskLevel')}</div></div>
+    <div class="small muted" style="margin-top:8px">Метки рассчитаны банком по собственной модели и не пересчитываются агентом.</div></div></details>
+
+  <details class="block" id="blk-B" open><summary>B. Профиль ${sc('B')}</summary><div class="body"><div class="kv">
+    <div class="k">${c.isIP?'ФИО':'Полное наименование'}</div><div class="v">${esc(c.full)}</div>
+    <div class="k">ИНН / ОГРН${c.isIP?'ИП':''}${c.kpp?' / КПП':''}</div><div class="v mono" style="font-size:14px">${c.inn} / ${c.ogrn}${c.kpp?' / '+c.kpp:''}</div>
+    <div class="k">Статус</div><div class="v">${c.status} (${c.statusDate}) ${c.reason?`<span class="sig">${ico('negative','sm')} ${esc(c.reason)}</span>`:''} ${ref('status.status')}</div>
+    <div class="k">Регистрация</div><div class="v">${c.reg}, ${c.age} ${/меньше года|^1 год/.test(c.age)?`<span class="sig">${ico('caution','sm')} моложе 3 лет</span>`:''} ${ref('baseInfo.registrationInfo.registrationDate')}</div>
+    <div class="k">Размер</div><div class="v">${c.size||(c.isIP?'<span class="tertiary">для ИП не определяется</span>':na)}</div>
+    <div class="k">Основной ОКВЭД</div><div class="v">${c.okved} <span class="muted">(+${c.okvedOther} дополнительных)</span></div>
+    <div class="k">Адрес</div><div class="v">${c.address?esc(c.address):(c.isIP?'<span class="tertiary">для ИП не публикуется</span>':na)} ${regNeg.some(r=>r.code==='massAddress')?`<span class="sig">${ico('caution','sm')} массовый</span>`:''}${regNeg.some(r=>r.code==='invalidAddress')?`<span class="sig">${ico('negative','sm')} недостоверный</span>`:''}</div>
+    <div class="k">Email / сайт / телефоны</div><div class="v">${c.email?`<a href="mailto:${c.email}">${c.email}</a>`:na} <span class="tertiary">/ не указано / не указано</span></div>
+    <div class="k">Налоговый режим</div><div class="v">${c.tax||(c.isIP?'<span class="tertiary">в отчёте нет</span>':na)}</div>
+    <div class="k">Дата отчёта</div><div class="v">${c.report} ${ref('reportDate')}</div>
+  </div></div></details>
+
+  <details class="block" id="blk-C" open><summary>C. Финансы ${fin&&c.trend?`<span class="status ${c.trend.startsWith('+')?'green':c.trend.startsWith('−')?'red':'grey'}">${c.trend}</span>`:''} ${sc('C')}</summary><div class="body">${chart}</div></details>
+
+  <details class="block" id="blk-D" open><summary>D. Юридические события ${sc('D')}</summary><div class="body">
+    <h3 style="margin:4px 0 6px">Исполнительные производства ${epActive?ico('negative','sm'):''}</h3>${ep}
+    <h3 style="margin:16px 0 6px">Арбитраж</h3>${arb}
+    <h3 style="margin:16px 0 6px">Проверки</h3>${insp}
+  </div></details>
+
+  <details class="block" id="blk-E" open><summary>E. Реестры ФНС ${sc('E')}</summary><div class="body">
+    ${regNeg.map(r=>`<div class="plate ${r.pol==='caution'?'attention':r.pol==='info'?'common':'negative'}" style="margin:0 0 8px"><div class="row" style="align-items:flex-start">${ico(r.pol,'sm')}<div><div style="font-weight:500">${esc(r.text)}</div>${ref('reputationalRisks.negative[code='+r.code+']')}</div></div></div>`).join('')}
+    <details class="col" ${regNeg.length?'':'open'}><summary>Проверено ${c.regPos} реестров, негативных отметок нет ${ref('reputationalRisks.positive[]')}</summary><div class="small muted" style="margin-top:6px">Банкротство · блокировки счетов ФНС · недостоверный адрес · недостоверные регистрационные данные · недостоверные данные руководителя · реестр недобросовестных поставщиков · дисквалифицированные лица · долги по налогам · несдача отчётности · массовый руководитель · массовый адрес · массовые ОКВЭД (за вычетом сработавших)</div></details>
+    ${regDup.length?`<details class="col" style="margin-top:8px"><summary>Отметки банка, дублирующие блоки C/D (${regDup.length})</summary>${regDup.map(r=>`<div class="small muted" style="margin-top:4px">${esc(r.text)} <span class="tertiary">— см. блок D</span></div>`).join('')}</details>`:''}
+  </div></details>
+
+  <details class="block" id="blk-F"><summary>F. Дополнительно ${sc('F')}</summary><div class="body"><div class="kv">
+    <div class="k">Руководитель</div><div class="v">${c.auth?`${c.auth.name}, ${c.auth.pos}, с ${c.auth.since} ${c.auth.recent?`<span class="sig">${ico('caution','sm')} смена за 24 мес.</span>`:''}`:'<span class="tertiary">ИП действует от своего имени</span>'} ${ref('foundersInfo.authPerson')}</div>
+    <div class="k">Учредители</div><div class="v">${c.founders.length?c.founders.map(f=>`${esc(f.name)} — ${f.share}, с ${f.since} ${f.recent?`<span class="sig">${ico('caution','sm')} вошёл за 24 мес.</span>`:''}`).join('<br>'):'<span class="tertiary">'+(c.isIP?'для ИП не применимо':'не указаны')+'</span>'} ${ref('foundersInfo.cofounders[]')}</div>
+    <div class="k">Лицензии</div><div class="v">${c.licenses.length?c.licenses.map(l=>`${esc(l.name)} — ${l.status}`).join('<br>'):'<span class="muted">сведений в отчёте нет</span>'} ${ref('licenses')}</div>
+    <div class="k">Госзакупки</div><div class="v muted">участие не найдено ${ref('procurements')}</div>
+    <div class="k">Связанные компании</div><div class="v">${c.related?`${c.related} ${c.related===1?'компания':c.related<5?'компании':'компаний'} <span class="tertiary">· риск-профиль связанных компаний недоступен (P3)</span>`:'<span class="muted">не найдены</span>'} ${ref('relatedCompanies[]')}</div>
+  </div></div></details>
+  <button class="btn ghost sm" onclick="alert('Side-panel с деревом полей исходного отчёта (P3). Для теста RAT скрывается флагом.')">Показать исходный отчёт (JSON)</button>`;
+}
+
+/* ---------- Сравнение ---------- */
+const lc = s => s.charAt(0).toLowerCase()+s.slice(1);
+function groupsByCriterion(k,list){
+  const g={negative:[],caution:[],gap:[],clean:[]};
+  (list||cs()).forEach(c=>{ const it=cellItems(c,k); const w=worst(it); (g[w]||g.clean).push([c,it]); });
+  return g;
+}
+function renderTotals(){
+  const list=cs(), n=list.length;
+  const headl=list.filter(c=>c.headline);
+  const withNeg=list.filter(c=>counts(c).neg>0), withGap=list.filter(c=>c.gaps.length>0), clean=list.filter(c=>counts(c).neg===0&&counts(c).cau===0);
+  const crit=rows().filter(([,k])=>k!=='bank'&&k!=='gapsRow').map(([name,k])=>{
+    const g=groupsByCriterion(k); const part=[];
+    if(g.negative.length) part.push(`<span class="g">${ico('negative','xs')}<span>${g.negative.map(([c])=>esc(c.short)).join(', ')}</span></span>`);
+    if(g.caution.length) part.push(`<span class="g">${ico('caution','xs')}<span>${g.caution.map(([c])=>esc(c.short)).join(', ')}</span></span>`);
+    if(g.gap.length) part.push(`<span class="g">${ico('gap','xs')}<span>оценить нельзя: ${g.gap.map(([c])=>esc(c.short)).join(', ')}</span></span>`);
+    if(!part.length) part.push(`<span class="g">${ico('positive','xs')}<span>негативных сигналов ни у кого</span></span>`);
+    return `<div class="k">${name}</div><div>${part.join('')}</div>`;
+  }).join('');
+  const llmText = S.llmOff ? '' : `<p style="margin:8px 0 0">${esc(`Из ${n} компаний ${headl.length?`у ${headl.length} есть предупреждение по статусу (${headl.map(c=>c.short).join(', ')}); `:''}негативные сигналы по данным отчёта у ${withNeg.length} (${withNeg.map(c=>c.short).join(', ')}); без негативных и требующих внимания сигналов — ${clean.length?clean.map(c=>c.short).join(', '):'никого'}. Пробелы в данных у ${withGap.length}: отсутствие сведений не означает отсутствие риска.`)}</p>`;
+  return `<div class="totals">
+    <div class="row" style="justify-content:space-between;flex-wrap:wrap"><h2>Итоги сравнения · ${n} контрагентов</h2><span class="small tertiary">Ранжирования нет; порядок — порядок добавления</span></div>
+    ${llmText}
+    ${headl.length?`<div class="headlines">${headl.map(c=>`<div class="alert">${ico('negative','sm')} <b>${esc(c.short)}:</b> ${esc(c.headline)}</div>`).join('')}</div>`:''}
+    <div class="crit">${crit}</div>
+    <div class="minis">${list.map(c=>{ const k=counts(c), t=topFact(c); return `<div class="mini" data-open="${c.inn}" data-go="summary" title="Открыть сводку">
+      <div class="row" style="justify-content:space-between"><span class="n">${esc(c.short)}</span>${riskStatus(c)}</div>
+      ${c.headline?`<div class="f">${ico('negative','xs')}<span style="color:var(--negative-text)">${esc(c.headline)}</span></div>`:''}
+      <div class="f">${ico(t.pol,'xs')}<span>${esc(t.text)}</span></div>
+      <div class="cnt"><span>${ico('negative','xs')}${k.neg}</span><span>${ico('caution','xs')}${k.cau}</span><span>${ico('gap','xs')}${k.gap}</span></div></div>`; }).join('')}</div>
+    <div class="small tertiary" style="margin-top:8px">Счётчики — число сработавших правил каждой полярности, не балл. Клик по карточке открывает сводку.</div>
+  </div>`;
+}
+function filtered(){
+  return cs().filter(c=> S.filter==='all' || (S.filter==='neg'&&counts(c).neg>0) || (S.filter==='gap'&&c.gaps.length>0) || (S.filter==='head'&&c.headline));
+}
+function renderMatrix(){
+  const list=filtered(), rs=rows();
+  const cell=(c,k)=>{ const it=[...cellItems(c,k)].sort((a,b)=>POL_ORDER[a[0]]-POL_ORDER[b[0]]);
+    return it.map(([p,t],i)=>`<div class="item${i>0?' hidden-item':''}">${ico(p,'sm')}<span>${esc(t)}</span></div>`).join('') + (it.length>1?`<div class="more" data-expand="1">ещё ${it.length-1}</div>`:''); };
+  return `
+  <div class="toolbar">
+    <h2>Матрица сигналов</h2>
+    <div class="seg">${[['all','Все'],['neg','С негативными'],['gap','С пробелами'],['head','С предупреждением']].map(([k,l])=>`<button class="${S.filter===k?'on':''}" data-filter="${k}">${l}</button>`).join('')}</div>
+    <div class="grow"></div>
+    <button class="btn ghost sm" data-expand="1">${S.expanded?'Свернуть ячейки':'Развернуть ячейки'}</button>
+    <button class="btn ${S.focus.length>=2?'primary':'secondary'} sm" data-focus="1" ${S.focus.length<2?'disabled':''}>Сравнить выбранных${S.focus.length?` (${S.focus.length})`:''}</button>
+  </div>
+  <div class="mx-wrap"><table class="mx${S.expanded?' expanded':''}">
+    <tr><th></th><th>Контрагент</th>${rs.map(([n])=>`<th>${n}</th>`).join('')}</tr>
+    ${list.map(c=>`<tr class="${S.focus.includes(c.inn)?'sel':''}" data-row="${c.inn}">
+      <td><input type="checkbox" data-pick="${c.inn}" ${S.focus.includes(c.inn)?'checked':''} ${!S.focus.includes(c.inn)&&S.focus.length>=4?'disabled title="В фокусе не больше 4"':''}></td>
+      <td><div class="cn" data-open="${c.inn}" data-go="card">${esc(c.short)}</div><div class="mono muted">${c.inn}</div><div style="margin-top:3px">${riskStatus(c)}</div>${c.headline?`<div class="small" style="color:var(--negative-text);margin-top:3px">${ico('negative','xs')} ${esc(c.headline.split(' (')[0])}</div>`:''}</td>
+      ${rs.map(([,k])=>`<td>${cell(c,k)}</td>`).join('')}</tr>`).join('')}
+    ${!list.length?`<tr><td colspan="${rs.length+2}" class="muted" style="text-align:center;padding:20px">По этому фильтру контрагентов нет</td></tr>`:''}
+  </table></div>
+  <div class="small tertiary" style="margin-top:8px">Фильтр показывает подмножество, не меняя порядок. Итоговой строки, баллов и сортировки по «надёжности» нет; выбор за вами. Отметьте 2–4 компании, чтобы открыть подробное сравнение колонками.</div>`;
+}
+function renderFocus(){
+  const list=S.focus.map(i=>DB[i]), rs=rows();
+  return `
+  <div class="toolbar"><button class="btn ghost sm" data-unfocus="1">← Ко всем ${S.session.length}</button><h2>Подробно: ${list.map(c=>esc(c.short)).join(' · ')}</h2></div>
+  <div style="overflow:auto"><table class="cmp">
+    <tr><th>Критерий</th>${list.map(c=>`<th><div class="cname" data-open="${c.inn}" data-go="card">${esc(c.name)}</div><div class="mono muted">${c.inn}</div><div style="margin-top:4px">${riskStatus(c)}</div></th>`).join('')}</tr>
+    ${rs.map(([n,k])=>`<tr><td>${n}</td>${list.map(c=>`<td>${cellItems(c,k).map(([p,t])=>`<div class="item">${ico(p,'sm')}<span>${esc(t)}</span></div>`).join('')}</td>`).join('')}</tr>`).join('')}
+  </table></div>`;
+}
+function renderDiffs(list){
+  const out=[];
+  rows().forEach(([name,k])=>{
+    if(k==='bank') return;
+    const g=groupsByCriterion(k,list);
+    const kinds=['negative','caution','gap','clean'].filter(x=>g[x].length);
+    if(kinds.length<2) return;
+    const part=[];
+    if(g.negative.length) part.push(g.negative.map(([c,it])=>`${esc(c.short)}: ${esc(it.filter(([p])=>p==='negative').map(([,t])=>lc(t)).join('; '))}`).join('. '));
+    if(g.caution.length) part.push(g.caution.map(([c,it])=>`${esc(c.short)}: ${esc(lc(it.find(([p])=>p==='caution')[1]))}`).join('. '));
+    if(g.gap.length) part.push(`${k==='gapsRow'?'Есть пробелы':'Оценить нельзя'}: ${g.gap.map(([c])=>esc(c.short)).join(', ')}`);
+    if(g.clean.length) part.push(`${k==='gapsRow'?'Все разделы заполнены':'Без негативных сигналов'}: ${g.clean.map(([c])=>esc(c.short)).join(', ')}`);
+    out.push(`<li><b>${name}.</b> ${part.join('. ')}.</li>`);
+  });
+  return out.length?`<div class="plate common"><h2>Различия</h2><ul>${out.join('')}</ul></div>`:`<div class="plate common"><h2>Различия</h2><div class="muted">По всем критериям полярности совпадают.</div></div>`;
+}
+function renderCompare(){
+  if(S.focusMode&&S.focus.length>=2){ const fl=S.focus.map(i=>DB[i]); return renderFocus()+renderYearChart()+renderDiffs(fl)+renderSteps(fl); }
+  return renderTotals()+renderMatrix()+renderYearChart()+renderDiffs()+renderSteps(cs());
+}
+function renderSteps(list){
+  return `<h2 style="margin-top:20px">Что проверить до сделки</h2>
+  <div class="gridN">${list.map(c=>`<div class="plate attention"><div style="font-weight:600;margin-bottom:6px">${esc(c.short)} ${riskStatus(c)}</div><ol style="padding-left:18px">${c.steps.map(s=>`<li class="small">${esc(s.text)} <span class="why">(${esc(s.why)})</span></li>`).join('')}</ol></div>`).join('')}</div>`;
+}
+
+/* ---------- График по годам ---------- */
+function seriesFor(list){
+  const [k,name,r]=METRICS.find(m=>m[0]===S.metric);
+  const ser=[], skipped=[];
+  list.forEach((c,i)=>{
+    const pts=c.fin.filter(f=>f[k]!=null&&!(k==='pr'&&f[k]===0)).map(f=>({y:f.y,v:f[k]}));
+    if(!pts.length){ skipped.push([c, c.isIP?'ИП не публикует отчётность':c.fin.length?'показатель не указан':'нет отчётности']); return; }
+    if(S.scale==='idx'&&pts.length<2){ skipped.push([c,`только ${pts[0].y}: индекс не считается`]); return; }
+    if(S.scale==='log'&&pts.some(p=>p.v<=0)){ skipped.push([c,'значения ≤ 0: лог-шкала неприменима']); return; }
+    let vals=pts.map(p=>p.v);
+    if(S.scale==='idx'){ const b=pts[0].v; if(b===0){ skipped.push([c,'первый год = 0: индекс не считается']); return; } vals=pts.map(p=>p.v/Math.abs(b)*100); }
+    if(S.scale==='log') vals=pts.map(p=>Math.log10(p.v));
+    ser.push({c,color:PALETTE[S.session.indexOf(c.inn)%PALETTE.length],pts:pts.map((p,j)=>({y:p.y,raw:p.v,v:vals[j]}))});
+  });
+  return {k,name,r,ser,skipped};
+}
+function yLabel(v){ if(S.scale==='idx') return Math.round(v)+''; if(S.scale==='log') return mlnShort(Math.pow(10,v)); return mlnShort(v); }
+function renderYearChart(){
+  const list=S.focusMode&&S.focus.length>=2?S.focus.map(i=>DB[i]):cs();
+  const {k,name,r,ser,skipped}=seriesFor(list);
+  const years=[...new Set(list.flatMap(c=>c.fin.map(f=>f.y)))].sort();
+  const ctl=`
+  <div class="toolbar" style="margin-top:20px"><h2>Динамика по годам</h2>
+    <div class="seg">${METRICS.map(([mk,mn])=>`<button class="${S.metric===mk?'on':''}" data-metric="${mk}">${mn}</button>`).join('')}</div>
+    <div class="grow"></div>
+    <div class="seg">${[['abs','млн ₽'],['idx','Индекс, первый год = 100'],['log','Лог-шкала']].map(([s,l])=>`<button class="${S.scale===s?'on':''}" data-scale="${s}">${l}</button>`).join('')}</div>
+    <div class="seg">${[['overlay','Общий'],['small','По компаниям']].map(([v,l])=>`<button class="${S.view===v?'on':''}" data-view="${v}">${l}</button>`).join('')}</div>
+  </div>
+  <div class="small muted" style="margin-bottom:6px">${name} ${ref(r)} · годы по возрастанию; год без значения не рисуется. Цвет линии — только для различения компаний.</div>`;
+  if(!ser.length) return ctl+`<div class="plate gap" style="margin-top:0">${ico('gap','sm')} Ни у одной компании нет данных для этого показателя в выбранной шкале.</div>`+skippedNote(skipped);
+  return ctl + (S.view==='overlay'?overlay(ser,years):smalls(ser,years)) + skippedNote(skipped);
+}
+function skippedNote(sk){ return sk.length?`<div class="small muted" style="margin-top:8px">${ico('gap','xs')} Не на графике: ${sk.map(([c,why])=>`${esc(c.short)} (${why})`).join('; ')}.</div>`:''; }
+function overlay(ser,years){
+  const W=820,H=280,L=64,R=120,T=16,B=32;
+  const vis=ser.filter(s=>!S.hiddenLines.has(s.c.inn));
+  const all=(vis.length?vis:ser).flatMap(s=>s.pts.map(p=>p.v));
+  let mn=Math.min(...all), mx=Math.max(...all); if(S.scale==='abs'){ mn=Math.min(0,mn); mx=Math.max(0,mx); } if(mn===mx){ mn-=1; mx+=1; }
+  const pad=(mx-mn)*0.08; mn-=pad; mx+=pad;
+  const x=y=>L+(years.indexOf(y))*((W-L-R)/Math.max(1,years.length-1));
+  const yy=v=>T+(H-T-B)*(1-(v-mn)/(mx-mn));
+  const ticks=[0,.25,.5,.75,1].map(t=>mn+(mx-mn)*t);
+  const zero=(S.scale==='abs'&&mn<0&&mx>0)?`<line class="ax" x1="${L}" x2="${W-R}" y1="${yy(0)}" y2="${yy(0)}" stroke-dasharray="3 3"/>`:'';
+  /* Подписи у концов линий раздвигаются, чтобы не накладываться (шаг 12 px) */
+  const ends=vis.map(s=>({s,ly:yy(s.pts[s.pts.length-1].v)})).sort((a,b)=>a.ly-b.ly);
+  for(let i=1;i<ends.length;i++) if(ends[i].ly-ends[i-1].ly<12) ends[i].ly=ends[i-1].ly+12;
+  const labelY=Object.fromEntries(ends.map(e=>[e.s.c.inn,e.ly]));
+  const lines=ser.map(s=>{ const on=!S.hiddenLines.has(s.c.inn); if(!on) return '';
+    const d=s.pts.map((p,i)=>`${i?'L':'M'}${x(p.y)},${yy(p.v)}`).join(' ');
+    const last=s.pts[s.pts.length-1];
+    return `<g data-line="${s.c.inn}"><path class="ln" d="${d}" stroke="${s.color}"/>${s.pts.map(p=>`<circle class="pt" cx="${x(p.y)}" cy="${yy(p.v)}" r="3.5" fill="${s.color}"><title>${esc(s.c.short)} · ${p.y}: ${mln(p.raw).replace(/<[^>]+>/g,'')}</title></circle>`).join('')}<text class="end" x="${x(last.y)+8}" y="${labelY[s.c.inn]+4}" fill="${s.color}">${esc(s.c.short)}</text></g>`; }).join('');
+  return `<div class="ychart" id="ychart"><svg viewBox="0 0 ${W} ${H}">
+    ${ticks.map(t=>`<line class="ax" x1="${L}" x2="${W-R}" y1="${yy(t)}" y2="${yy(t)}"/><text class="lbl" x="${L-8}" y="${yy(t)+4}" text-anchor="end">${yLabel(t)}</text>`).join('')}
+    ${zero}
+    ${years.map(y=>`<text class="lbl" x="${x(y)}" y="${H-10}" text-anchor="middle">${y}</text>`).join('')}
+    ${lines}
+  </svg></div>
+  <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">${ser.map(s=>`<span class="lchip${S.hiddenLines.has(s.c.inn)?' off':''}" data-toggle="${s.c.inn}" data-hover="${s.c.inn}"><i style="background:${s.color}"></i>${esc(s.c.short)}</span>`).join('')}<span class="small tertiary" style="margin-left:6px">клик скрывает линию, наведение подсвечивает</span></div>
+  ${S.scale==='abs'&&ser.length>1?`<div class="small tertiary" style="margin-top:4px">Масштабы компаний различаются на порядки; для сравнения динамики переключитесь на «Индекс» или «Лог-шкала».</div>`:''}`;
+}
+function smalls(ser,years){
+  const all=ser.flatMap(s=>s.pts.map(p=>p.v)); let gmn=Math.min(...all,S.scale==='abs'?0:Infinity), gmx=Math.max(...all,S.scale==='abs'?0:-Infinity);
+  const W=200,H=70,L=20,R=20,T=10,B=14;
+  return `<div class="row small muted" style="gap:8px;margin-bottom:4px"><span>Шкала:</span><div class="seg"><button class="${S.smallScale!=='shared'?'on':''}" data-sscale="own">своя у каждой</button><button class="${S.smallScale==='shared'?'on':''}" data-sscale="shared">общая</button></div></div>
+  <div class="smalls">${ser.map(s=>{
+    let mn,mx; if(S.smallScale==='shared'){ mn=gmn; mx=gmx; } else { const v=s.pts.map(p=>p.v); mn=Math.min(...v,S.scale==='abs'?0:Infinity); mx=Math.max(...v,S.scale==='abs'?0:-Infinity); }
+    if(mn===mx){ mn-=1; mx+=1; } const pad=(mx-mn)*.1; mn-=pad; mx+=pad;
+    const x=y=>L+(years.indexOf(y))*((W-L-R)/Math.max(1,years.length-1)), yy=v=>T+(H-T-B)*(1-(v-mn)/(mx-mn));
+    const d=s.pts.map((p,i)=>`${i?'L':'M'}${x(p.y)},${yy(p.v)}`).join(' ');
+    const first=s.pts[0], last=s.pts[s.pts.length-1];
+    const pct=first.raw&&s.pts.length>1?Math.round((last.raw-first.raw)/Math.abs(first.raw)*100):null;
+    return `<div class="sm-c"><div class="t"><span title="${esc(s.c.name)}">${esc(s.c.short)}</span>${pct!=null?`<span class="status ${S.metric==='stl'?'grey':pct>5?'green':pct<-5?'red':'grey'}" title="${S.metric==='stl'?'рост обязательств не оценивается цветом':'изменение первый → последний год'}">${pct>0?'+':''}${pct} %</span>`:`<span class="status grey">1 год</span>`}</div>
+      <svg viewBox="0 0 ${W} ${H}"><path class="ln" d="${d}" stroke="#0b1f35" stroke-width="2" fill="none"/>${s.pts.map(p=>`<circle cx="${x(p.y)}" cy="${yy(p.v)}" r="3" fill="#0b1f35"><title>${p.y}: ${mln(p.raw).replace(/<[^>]+>/g,'')}</title></circle>`).join('')}${years.map(y=>`<text class="lbl" x="${x(y)}" y="${H-2}" text-anchor="middle">${y}</text>`).join('')}</svg>
+      <div class="small muted" style="display:flex;justify-content:space-between"><span>${mln(first.raw).replace(/<[^>]+>/g,'')}</span><span>${mln(last.raw).replace(/<[^>]+>/g,'')}</span></div></div>`; }).join('')}</div>`;
+}
+
+/* ---------- Чат ---------- */
+const PRESETS=['Почему такая оценка банка?','Что с финансами?','Есть ли долги и суды?','Чего не хватает в отчёте?','Что проверить до сделки?','В чём главные различия?','Кто из них лучше?','Доступные ИНН'];
+const findByName = t => cs().find(c=>t.includes(c.short.toLowerCase().split(' ')[0].replace('ип','').trim()||'§') || t.includes(c.short.toLowerCase()));
+function addInn(inn){
+  if(!DB[inn]) return {ok:false,html:`<div class="err">Отчёт по ИНН ${inn} в базе не найден.</div><p>В макете доступны 10 компаний — напишите «доступные ИНН».</p>`};
+  if(S.session.includes(inn)){ S.selected=inn; S.tab='summary'; renderAll(); return {ok:true,html:`<p>${esc(DB[inn].name)} уже в сессии — открыл сводку.</p>`}; }
+  if(S.session.length>=MAX) return {ok:false,html:`<div class="err">В сессии не больше ${MAX} контрагентов. Удалите одного («убери Техпром»), чтобы добавить нового.</div>`};
+  S.session.push(inn); S.selected=inn; S.tab=S.session.length>1?'compare':'summary'; S.focusMode=false; renderAll();
+  return {ok:true,html:introHtml(DB[inn])};
+}
+const introHtml = c => `<p>Добавил ${esc(c.name)} (${S.session.length} из ${MAX}). Кратко по данным отчёта:</p>${c.headline?`<div class="err">${esc(c.headline)}</div>`:''}<ul>${c.facts.slice(0,4).map(f=>`<li>${esc(f.text)} ${ref(f.refs[0])}</li>`).join('')}</ul>${c.gaps.length?`<div class="gapbox">Оценить нельзя: ${c.gaps.map(g=>esc(g.text)).join('; ')}.</div>`:''}<div class="actions"><button class="chip" data-go="summary" data-inn="${c.inn}">Открыть сводку</button><button class="chip" data-go="card" data-inn="${c.inn}">Открыть карточку</button>${S.session.length>1?`<button class="chip" data-go="compare">Открыть сравнение</button>`:''}</div>`;
+function agentAnswer(q){
+  const t=q.toLowerCase().trim();
+  const inns=[...new Set((q.match(/\d{10,12}/g)||[]).filter(x=>x.length===10||x.length===12))];
+  if(/^доступн|доступные инн|какие инн|список компаний/.test(t)) return `<p>В моковой базе макета 10 отчётов (в проде — 100, через инструмент <code>list_reports</code>). Клик по строке добавляет в сессию:</p><table><tr><th>ИНН</th><th>Компания</th><th>Метка</th></tr>${Object.values(DB).map(c=>`<tr class="pick" data-add="${c.inn}"><td class="mono">${c.inn}</td><td>${esc(c.short)}</td><td>${riskStatus(c)}</td></tr>`).join('')}</table>`;
+  if(/^(очист|сброс|начать заново|новая сессия)/.test(t)){ S.session=[]; S.deal={goal:null,amount:null}; S.focus=[]; renderAll(); return `<p>Сессия очищена. Введите ИНН, чтобы начать.</p>`; }
+  if(/^(убери|удали|убрать|удалить|исключи)/.test(t)){
+    const c = inns.length?DB[inns[0]]:findByName(t);
+    if(!c||!S.session.includes(c.inn)) return `<p>Не нашёл такого контрагента в сессии. Сейчас в сессии: ${cs().map(c=>esc(c.short)).join(', ')||'никого'}.</p>`;
+    S.session=S.session.filter(i=>i!==c.inn); S.focus=S.focus.filter(i=>i!==c.inn); if(S.selected===c.inn) S.selected=S.session[0]; renderAll();
+    return `<p>Убрал ${esc(c.name)} из сессии. Осталось ${S.session.length}.</p>`;
+  }
+  if(inns.length){
+    const res=inns.map(addInn); if(inns.length===1) return res[0].html;
+    return `<p>Обработал ${inns.length} ИНН: добавлено ${res.filter(r=>r.ok).length}, не найдено ${res.filter(r=>!r.ok).length}.</p>`+res.filter(r=>!r.ok).map(r=>r.html).join('')+`<div class="actions"><button class="chip" data-go="compare">Открыть сравнение</button></div>`;
+  }
+  const amt=t.match(/(\d+(?:[.,]\d+)?)\s*(млрд|млн|тыс)/); const goal=/госзакуп|тендер/.test(t)?'госзакупка':/поставк/.test(t)?'поставка':/без контекста/.test(t)?null:undefined;
+  if((amt&&/контракт|сделк|сумм|планиру|договор/.test(t))||goal!==undefined&&/цель|контекст|поставк|госзакуп/.test(t)){
+    if(amt){ const v=parseFloat(amt[1].replace(',','.')); S.deal.amount=amt[2]==='млрд'?v*1000:amt[2]==='млн'?v:v/1000; }
+    if(goal!==undefined) S.deal.goal=goal;
+    renderAll();
+    const hit=cs().filter(c=>S.deal.amount&&dealCell(c)[0]==='caution');
+    return `<p>Запомнил контекст сделки: ${[S.deal.goal, S.deal.amount?mln(S.deal.amount).replace(/<[^>]+>/g,''):null].filter(Boolean).join(', ')}. ${S.deal.amount?`В сравнении появилась строка «Соразмерность сделки»${hit.length?`: сумма превышает годовую выручку у ${hit.map(c=>esc(c.short)).join(', ')} ${ref('finReports[].common.proceeds')}`:''}.`:''} Метки банка не пересчитываются.</p><div class="actions">${S.session.length>1?`<button class="chip" data-go="compare">Открыть сравнение</button>`:''}</div>`;
+  }
+  const c=DB[S.selected]; if(!c) return `<p>В сессии пока никого. Введите ИНН — 10 цифр для юрлица или 12 для ИП.</p>`;
+  if(/лучше|надёжн|надежн|с кем работать|кого выбрать|самый/.test(t)) return `<p>Не ранжирую компании — перечислю различия по данным отчёта, решение за вами.</p>${renderDiffs().replace(/<div class="plate common"><h2>Различия<\/h2>/,'').replace(/<\/div>$/,'')}<p>Отсутствие фактов не означает отсутствие риска: у ${cs().filter(c=>c.gaps.length).map(c=>esc(c.short)).join(', ')||'никого'} есть пробелы в данных.</p><div class="actions"><button class="chip" data-go="compare">Открыть сравнение</button></div>`;
+  if(/различ/.test(t)) return renderDiffs().replace(/<div class="plate common"><h2>Различия<\/h2>/,'').replace(/<\/div>$/,'')+`<div class="actions"><button class="chip" data-go="compare">Открыть сравнение</button></div>`;
+  if(/оценк|риск|почему/.test(t)){
+    const neg=c.facts.slice(1).filter(f=>f.pol==='negative'||f.pol==='caution');
+    if(c.risk==='HIGH'&&!neg.some(f=>f.pol==='negative')) return `<p>Банк присвоил ${esc(c.name)} высокий уровень риска ${ref('baseInfo.riskLevel')}${c.zsk!=='GREEN'?` и метку ЗСК «${ZSK[c.zsk][0].replace('ЗСК ','')}» ${ref('zskRiskLevel')}`:''}. Факты отчёта эту метку не раскрывают: негативных сигналов правила не нашли${neg.length?`, требуют внимания: ${neg.map(f=>esc(f.text.toLowerCase().replace(/\.$/,''))).join('; ')}`:''}.</p><div class="gapbox">Модель риска банка учитывает данные, которых в отчёте нет; объяснить метку по отчёту нельзя, и оспаривать её я не буду.</div><p>Что проверить: ${c.steps.map(s=>esc(s.text.toLowerCase().replace(/\.$/,''))).join('; ')}.</p>`;
+    return `<p>Банк присвоил ${esc(c.name)} метку «${RISK[c.risk][0]}» ${ref('baseInfo.riskLevel')}, ЗСК — «${ZSK[c.zsk][0].replace('ЗСК ','')}» ${ref('zskRiskLevel')}. Метку я не пересчитываю. Факты отчёта рядом с ней:</p>${c.headline?`<div class="err">${esc(c.headline)}</div>`:''}<ul>${c.facts.slice(1).map(f=>`<li>${esc(f.text)} ${ref(f.refs[0])}</li>`).join('')}</ul>`;
+  }
+  if(/финанс|выручк|прибыл/.test(t)){
+    const fin=c.fin.filter(f=>f.pr); if(!fin.length) return `<p>Выручка в отчётности ${esc(c.name)} не указана ни за один год ${ref('finReports')}.</p><div class="gapbox">Недостаточно данных для оценки финансов${c.isIP?' — ИП не публикует отчётность':''}.</div>`;
+    return `<p>${esc(c.name)}: выручка ${fin.map(f=>`${mln(f.pr)} (${f.y})`).join(' → ')} ${ref('finReports[].common.proceeds')}. ${fin.length<2?'Тренд по одному году оценить нельзя.':''} ${esc(c.facts.find(f=>f.slot==='Финансы').text)}</p>${c.fin.every(f=>f.pf==null)?'<div class="gapbox">Прибыль в отчётности не указана.</div>':''}<div class="actions">${S.session.length>1?`<button class="chip" data-go="compare" data-scroll="ychart">Динамика по годам</button>`:''}<button class="chip" data-go="card" data-inn="${c.inn}">Открыть карточку</button></div>`;
+  }
+  if(/долг|суд|арбитраж|исполнительн/.test(t)){
+    const a=c.arb, ep=c.ep.activeTotal??c.ep.active.length;
+    return `<p>${ep?`Активные исполнительные производства: ${ep}${c.ep.activeSum?` на ${c.ep.activeSum}`:''}${c.ep.active.some(e=>!e.a)?', сумма не указана':''} ${ref('executionProceedings[].active')}.`:`Исполнительные производства не найдены ${ref('executionProceedings')}.`} ${a?`Арбитраж: всего ${a.total} дел, из них как истец ${a.pf+a.pa+a.pp}, как ответчик ${a.df+a.da+a.dp}${a.dp?`; открытых как ответчик ${a.dp}${a.dpA?' на '+a.dpA:''}`:'; открытых как ответчик нет'} ${ref('arbitrationByStatus')}.`:`Арбитражные дела не найдены ${ref('arbitrationByStatus')}.`}</p>${c.insp?`<p>Проверок: ${c.insp.total}, нарушений не выявлено ${ref('inspections[]')}.</p>`:`<div class="gapbox">Сведений о проверках контролирующих органов в отчёте нет — по этому критерию оценка невозможна.</div>`}`;
+  }
+  if(/не хватает|пробел|нет данных|недостаточно/.test(t)) return c.gaps.length?`<p>По ${esc(c.name)} оценить нельзя:</p><ul>${c.gaps.map(g=>`<li>${esc(g.text)} ${ref(g.ref)}</li>`).join('')}</ul><p>Отсутствие сведений не означает отсутствие риска.</p>`:`<p>По ${esc(c.name)} все разделы отчёта заполнены; пробелов в данных нет.</p>`;
+  if(/провер|запрос|до сделки|документ/.test(t)) return `<p>По ${esc(c.name)} до сделки:</p><ol>${c.steps.map(s=>`<li>${esc(s.text)} <span class="muted small">(${esc(s.why)})</span></li>`).join('')}</ol>`;
+  if(/сотрудник|штат|клиент|сайт|интернет/.test(t)) return `<p>В доступных данных этой информации нет.</p><div class="gapbox">Веб-поиск не подключён; отвечаю только по отчёту банка.</div>`;
+  return `<p>Могу ответить по данным отчёта: оценка банка, финансы, исполнительные производства и арбитраж, реестры ФНС, учредители и руководитель, пробелы в данных, что проверить до сделки. Управление сессией тоже здесь: ИНН добавляет контрагента, «убери …» удаляет, «контракт на 50 млн, поставка» задаёт контекст сделки.</p>`;
+}
+function addMsg(role,html){ const m=document.createElement('div'); m.className='msg '+role; m.innerHTML=html; $('#msgs').appendChild(m); $('#msgs').scrollTop=1e9; return m; }
+function send(text){
+  if(!text.trim()) return;
+  addMsg('user',esc(text)); $('#chatInput').value='';
+  const isCmd=/\d{10,12}/.test(text)||/^(убери|удали|очист|доступн)/i.test(text.trim());
+  if(S.llmOff&&!isCmd){ addMsg('agent',`<div class="sys">Языковая модель недоступна. Данные отчёта доступны в сводке и карточке; команды сессии (ИНН, «убери», «очисти») работают.</div>`); return; }
+  const sk=addMsg('agent',`<div class="skeleton"><i style="width:80%"></i><i style="width:95%"></i><i style="width:60%"></i></div>`);
+  setTimeout(()=>{ const a=agentAnswer(text); const n=(a.match(/class="ref"/g)||[]).length; sk.innerHTML=a+(n&&!S.llmOff?`<details class="check"><summary>Проверка ответа: ${n} ${n===1?'поле':n<5?'поля':'полей'}, 0 замечаний</summary>Каждое число и дата сверены с результатом инструмента; все ссылки на поля существуют в отчёте.</details>`:''); $('#msgs').scrollTop=1e9; renderPresets(); },500);
+}
+function greet(){
+  $('#msgs').innerHTML='';
+  if(!S.session.length){ addMsg('agent','<p>Введите ИНН контрагента — покажу сводку по данным отчёта банка. До 10 компаний в одной сессии.</p>'); return; }
+  addMsg('user','проверь '+S.session.join(', '));
+  if(S.llmOff){ addMsg('agent',`<div class="sys">Языковая модель недоступна. ${S.session.length===1?'Контрагент добавлен':'Контрагенты добавлены'} в сессию; сводки и сравнение сформированы по правилам и доступны слева.</div>`); return; }
+  if(S.session.length===1){ addMsg('agent',introHtml(DB[S.session[0]])); return; }
+  const list=cs(), headl=list.filter(c=>c.headline), neg=list.filter(c=>counts(c).neg>0);
+  addMsg('agent',`<p>Добавил в сессию ${list.length} компаний и открыл сравнение по единому набору критериев.</p><p>Коротко: ${headl.length?`предупреждение по статусу у ${headl.map(c=>`${esc(c.short)} (${esc(c.headline.split(' (')[0])} ${ref('status.reasonName')})`).join(', ')}; `:''}негативные сигналы у ${neg.length} из ${list.length}: ${neg.map(c=>esc(c.short)).join(', ')}. Без негативных и требующих внимания сигналов — ${list.filter(c=>counts(c).neg===0&&counts(c).cau===0).map(c=>esc(c.short)).join(', ')||'никого'}. Итоги и матрица сигналов — в рабочей области.</p><div class="actions"><button class="chip" data-go="compare">Открыть сравнение</button></div>`);
+}
+function renderPresets(){ $('#presets').innerHTML=PRESETS.filter(p=>(S.session.length>1||!/различ|лучше/.test(p))&&(S.session.length>0||/Доступные/.test(p))).map(p=>`<button class="chip" data-q="${esc(p)}">${esc(p)}</button>`).join(''); }
+
+/* ---------- Подсветка блока по ссылке на поле ---------- */
+function openRef(r){
+  const map=[[/^(baseInfo\.riskLevel|zskRiskLevel)/,'A'],[/^(status|baseInfo|reportDate)/,'B'],[/^(finReports|coefficient)/,'C'],[/^(executionProceedings|arbitration|inspections)/,'D'],[/^reputationalRisks/,'E'],[/^(foundersInfo|licenses|procurements|relatedCompanies)/,'F']];
+  const b=(map.find(([re])=>re.test(r))||[0,'B'])[1];
+  S.tab='card'; renderAll();
+  const el=$('#blk-'+b); if(el){ el.open=true; el.classList.add('hl'); el.scrollIntoView({block:'start',behavior:'smooth'}); setTimeout(()=>el.classList.remove('hl'),1500); }
+}
+
+/* ---------- События ---------- */
+function renderAll(){ renderSession(); renderWork(); renderPresets(); }
+document.addEventListener('click',e=>{
+  const t=e.target, d=t.dataset, cl=s=>t.closest(s);
+  if(cl('.tab')){ S.tab=cl('.tab').dataset.tab; renderAll(); }
+  else if(d.del){ e.stopPropagation(); S.session=S.session.filter(i=>i!==d.del); S.focus=S.focus.filter(i=>i!==d.del); if(S.selected===d.del) S.selected=S.session[0]; renderAll(); }
+  else if(d.deldeal){ S.deal={goal:null,amount:null}; renderAll(); }
+  else if(d.clear){ e.preventDefault(); if(confirm('Очистить сессию? Контрагенты, контекст сделки и история чата будут сброшены.')){ S.session=[]; S.deal={goal:null,amount:null}; S.focus=[]; renderAll(); greet(); } }
+  else if(cl('.cchip[data-inn]')){ S.selected=cl('.cchip').dataset.inn; if(S.tab==='compare') S.tab='summary'; renderAll(); }
+  else if(t.classList.contains('ref')){ e.stopPropagation(); openRef(d.ref); }
+  else if(cl('.fact')){ openRef(cl('.fact').dataset.ref); }
+  else if(d.pick!==undefined){ S.focus=t.checked?[...S.focus,d.pick]:S.focus.filter(i=>i!==d.pick); renderWork(); }
+  else if(d.focus){ S.focusMode=true; renderWork(); }
+  else if(d.unfocus){ S.focusMode=false; renderWork(); }
+  else if(d.filter){ S.filter=d.filter; renderWork(); }
+  else if(d.expand){ S.expanded=!S.expanded; renderWork(); }
+  else if(d.metric){ S.metric=d.metric; S.hiddenLines.clear(); renderWork(); }
+  else if(d.scale){ S.scale=d.scale; renderWork(); }
+  else if(d.view){ S.view=d.view; renderWork(); }
+  else if(d.sscale){ S.smallScale=d.sscale; renderWork(); }
+  else if(d.toggle){ S.hiddenLines.has(d.toggle)?S.hiddenLines.delete(d.toggle):S.hiddenLines.add(d.toggle); renderWork(); }
+  else if(cl('[data-open]')){ const el=cl('[data-open]'); S.selected=el.dataset.open; S.tab=el.dataset.go||'card'; renderAll(); }
+  else if(d.ep){ S.epView=d.ep; renderWork(); }
+  else if(d.q){ send(d.q); }
+  else if(cl('tr.pick')){ const r=addInn(cl('tr.pick').dataset.add); addMsg('agent',r.html); }
+  else if(d.go){ if(d.inn) S.selected=d.inn; S.tab=d.go; S.focusMode=false; renderAll(); if(d.scroll){ const el=$('#'+d.scroll); el&&el.scrollIntoView({behavior:'smooth'}); } }
+  else if(d.state){ document.querySelectorAll('.devbar [data-state]').forEach(b=>b.classList.toggle('on',b===t)); S.session=[...SETS[d.state]]; S.selected=S.session[0]; S.tab=S.session.length>1?'compare':'summary'; S.focus=[]; S.focusMode=false; S.filter='all'; renderAll(); greet(); }
+});
+document.addEventListener('mouseover',e=>{ const h=e.target.closest('[data-hover]'); const ch=$('#ychart'); if(!ch) return; if(h){ ch.classList.add('dim'); ch.querySelectorAll('[data-line]').forEach(g=>g.querySelectorAll('.ln,.pt,.end').forEach(x=>x.classList.toggle('on',g.dataset.line===h.dataset.hover))); } else { ch.classList.remove('dim'); } });
+$('#llmToggle').onclick=()=>{ S.llmOff=!S.llmOff; $('#llmToggle').textContent='LLM недоступна: '+(S.llmOff?'вкл':'выкл'); $('#llmToggle').classList.toggle('on',S.llmOff); renderWork(); greet(); };
+$('#sendBtn').onclick=()=>send($('#chatInput').value);
+$('#chatInput').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send($('#chatInput').value);} });
+
+/* Начальное состояние из hash: #empty | #one | #three | #ten · #summary | #card | #compare · #t2 | #t3 · #llmoff · #deal (через запятую) */
+const H=(location.hash||'').slice(1).split(',');
+const setName=['empty','one','three','ten'].find(s=>H.includes(s))||'ten';
+S.session=[...SETS[setName]];
+S.selected=H.includes('t3')?'9714079997':H.includes('t2')?'1660266560':S.session[0]; S.tab=H.includes('summary')?'summary':H.includes('card')?'card':(S.session.length>1?'compare':'summary');
+if(H.includes('llmoff')){S.llmOff=true; $('#llmToggle').textContent='LLM недоступна: вкл'; $('#llmToggle').classList.add('on');}
+if(H.includes('deal')){S.deal={goal:'поставка',amount:100};}
+if(H.includes('idx')) S.scale='idx'; if(H.includes('log')) S.scale='log'; if(H.includes('small')) S.view='small';
+if(H.includes('focus')&&S.session.length>=3){ S.focus=S.session.slice(0,3); S.focusMode=true; }
+if(H.includes('neg')) S.filter='neg';
+document.querySelectorAll('.devbar [data-state]').forEach(b=>b.classList.toggle('on',b.dataset.state===setName));
+renderAll(); greet();
+</script>
+</body>
+</html>

@@ -44,14 +44,23 @@ def get_llm_client(profile_name: str = None) -> ChatOpenAI:
     temperature = float(profile_config.get("temperature", 0.2))
     top_p = float(profile_config.get("top_p", 0.9))
 
+    # Доп. параметры тела запроса (не входят в стандартный OpenAI-контракт).
+    # Для локальных reasoning-моделей (Qwen3) через LM Studio урезаем объём
+    # размышлений, иначе на слабом железе ответ занимает минуты.
+    extra_body = profile_config.get("extra_body")
+
     # Инициализация клиента
-    llm = ChatOpenAI(
+    client_kwargs = dict(
         model=profile_config["model"],
         base_url=profile_config["base_url"],
         api_key=api_key,
         temperature=temperature,
         top_p=top_p,
     )
+    if extra_body:
+        client_kwargs["extra_body"] = extra_body
+
+    llm = ChatOpenAI(**client_kwargs)
 
     return llm
 

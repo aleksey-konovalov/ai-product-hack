@@ -1,0 +1,16 @@
+{
+  "reply_text": "Выручка компании растёт: с 569,2 млн ₽ в 2023 году до 806,3 млн ₽ в 2025 году, прирост 42 %. Это позитивный сигнал устойчивости бизнеса.",
+  "brief": [],
+  "answer_kind": "qa",
+  "primary_inn": "9721159668",
+  "facts": [],
+  "claims": [
+    {"text_span": "569,2 млн ₽ в 2023 году", "inn": "9721159668", "field": "finReports[year=2023].common.proceeds", "signal_id": "SIG_1_ФИНАНСЫ"},
+    {"text_span": "806,3 млн ₽ в 2025 году", "inn": "9721159668", "field": "finReports[year=2025].common.proceeds", "signal_id": "SIG_1_ФИНАНСЫ"}
+  ],
+  "gaps": [],
+  "next_steps": [],
+  "headline": null,
+  "panel": {"kind": "card", "inn": "9721159668", "block": "B", "metric": null},
+  "suggestions": ["Динамика выручки по годам", "Есть ли долги или суды?", "Что проверить до сделки?"]
+}

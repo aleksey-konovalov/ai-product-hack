@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="slides-format" content="viewport">
+  <title>Агент проверки контрагентов · промежуточная защита</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-bg: #f5f8fc;
+      --color-bg-deep: #e9eff7;
+      --color-surface: #ffffff;
+      --color-text: #18253a;
+      --color-text-secondary: #4d617f;
+      --color-text-muted: #6c7f9c;
+      --color-accent-1: #50c8ff;
+      --color-accent-2: #7c5cff;
+      --color-accent-3: #25d0a5;
+      --color-glass-bg: rgba(255,255,255,0.82);
+      --color-glass-border: rgba(24,37,58,0.10);
+      --color-vignette: rgba(24,37,58,0.05);
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+  </style>
+  <style>
+    :root { --color-bg: #f5f8fc; --color-text: #18253a; --glow-color-rgb: 80,200,255; }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { background: var(--color-bg); margin: 0; }
+    body { font-family: var(--font-body); color: var(--color-text); overflow: hidden; height: 100vh; width: 100vw; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(180deg, #f8fbff 0%, #edf3fa 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transform: scale(0.96); transition: opacity .65s ease, transform .65s ease; pointer-events: none; overflow: hidden; }
+    .slide.active { opacity: 1; transform: scale(1); pointer-events: all; }
+    .slide > .content { position: relative; z-index: 2; width: 100%; max-width: 1180px; padding: clamp(1.2rem, 3vw, 3rem); }
+    .nav-controls { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; z-index: 100; background: rgba(255,255,255,.82); backdrop-filter: blur(12px); padding: 10px 18px; border-radius: 999px; border: 1px solid rgba(255,255,255,.1); }
+    .nav-btn { width: 40px; height: 40px; border: none; background: rgba(24,37,58,.05); color: var(--color-text); border-radius: 50%; font-size: 1.15rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .slide-dots { display: flex; gap: 8px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(24,37,58,.16); cursor: pointer; transition: .3s; }
+    .dot.active { background: #50c8ff; transform: scale(1.25); }
+    .slide-counter { font-size: .82rem; color: #6c7f9c; min-width: 44px; text-align: center; }
+    .reveal { opacity: 0; transform: translateY(18px); }
+    .gradient-mesh { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 16s ease-in-out infinite; }
+    .blob:nth-child(2) { animation-duration: 19s; animation-direction: reverse; }
+    .blob:nth-child(3) { animation-duration: 22s; }
+    .slide::before { content:''; position:absolute; inset:0; z-index:1; pointer-events:none; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"); opacity:.03; mix-blend-mode:normal; }
+    .slide::after { content:''; position:absolute; inset:0; z-index:1; pointer-events:none; background: radial-gradient(ellipse at center, transparent 48%, var(--color-vignette) 100%); }
+    .content-grid-2 { display:grid; grid-template-columns: 1.1fr .9fr; gap: 1.4rem; align-items: stretch; }
+    .content-grid-3 { display:grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .content-grid-4 { display:grid; grid-template-columns: repeat(4, 1fr); gap: .9rem; }
+    .content-grid-5 { display:grid; grid-template-columns: repeat(5, 1fr); gap: .7rem; }
+    .glass { background: rgba(255,255,255,.9); border: 1px solid rgba(24,37,58,.08); backdrop-filter: blur(10px); border-radius: 24px; box-shadow: 0 12px 30px rgba(39,71,109,.10); }
+    .metric { font-size: clamp(2rem, 3.8vw, 3.4rem); font-weight: 900; line-height: .95; letter-spacing: -.04em; }
+    .kicker { text-transform: uppercase; letter-spacing: .22em; font-size: .76rem; color: #8ca3c6; }
+    .table { width:100%; border-collapse: collapse; font-size: .92rem; }
+    .table th, .table td { padding: .72rem .75rem; border-bottom: 1px solid rgba(24,37,58,.08); vertical-align: top; }
+    .table th { color: #2a7dc4; font-weight: 700; text-align: left; }
+    .table.compact-rows th, .table.compact-rows td { padding: .42rem .7rem; }
+    .stage-table td { vertical-align: middle; color: #34496a; }
+    .stage-table tbody tr:first-child td { border-top: none; }
+    .pct-cell { display: flex; align-items: center; gap: .45rem; }
+    .pct-cell b { color: #1c2c45; font-size: .82rem; min-width: 2.4em; }
+    .pct-bar { flex: 1; height: 6px; border-radius: 999px; background: rgba(37,125,196,.12); overflow: hidden; }
+    .pct-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg,#2a7dc4,#25d0a5); }
+    .pct-bar.hi span { background: linear-gradient(90deg,#0d9488,#25d0a5); }
+    .stage-table .days { font-size: .72rem; color: #8194ac; margin-top: .15rem; }
+    .stage-table .row-highlight { background: rgba(37,208,165,.07); }
+    .stage-table .row-highlight td:first-child b { color: #0d9488; }
+    .pill { display:inline-flex; align-items:center; gap:.45rem; padding:.42rem .8rem; border-radius:999px; border:1px solid rgba(255,255,255,.08); background:rgba(80,200,255,.08); color:#22324c; font-size:.86rem; }
+    .big-title { font-family: var(--font-display); font-size: clamp(2.8rem, 6vw, 5.6rem); line-height: .92; letter-spacing: -.05em; }
+    .section-title { font-family: var(--font-display); font-size: clamp(1.8rem, 3vw, 2.8rem); line-height: 1; letter-spacing: -.03em; }
+    .list-tight li { margin-bottom: .65rem; }
+    .bar-track { height: 14px; border-radius: 999px; background: rgba(24,37,58,.08); overflow: hidden; }
+    .bar-fill { height:100%; border-radius:999px; background: linear-gradient(90deg, #50c8ff, #7c5cff); width:0; }
+    .slide-1 .hero-card { padding: 1.5rem; }
+    .roadline { height: 6px; border-radius: 999px; background: linear-gradient(90deg, #25d0a5 0%, #50c8ff 45%, #7c5cff 100%); box-shadow: 0 0 32px rgba(80,200,255,.25); }
+    .timer-box { display:flex; align-items:center; gap:.8rem; padding:.58rem .9rem; border-radius:999px; background:rgba(255,255,255,.92); border:1px solid rgba(24,37,58,.1); color:#18253a; font-weight:700; box-shadow:0 8px 24px rgba(39,71,109,.10); }
+    .timer-dot { width:10px; height:10px; border-radius:50%; background:#25d0a5; box-shadow:0 0 0 6px rgba(37,208,165,.14); }
+    .timer-box.warn .timer-dot { background:#ff9f43; box-shadow:0 0 0 6px rgba(255,159,67,.16);}
+    .timer-box.danger .timer-dot { background:#ff5a6b; box-shadow:0 0 0 6px rgba(255,90,107,.16);}
+    .qr-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.2rem; max-width:920px; margin:0 auto; text-align:left; }
+    .qr-card img { width:180px; height:180px; object-fit:contain; margin:1rem auto 0; background:#fff; padding:.6rem; border-radius:18px; border:1px solid rgba(24,37,58,.08); }
+    .pipe-arrow { display:flex; align-items:center; justify-content:center; color:#8ca3c6; font-size:1.2rem; font-weight:700; }
+    @keyframes float { 0%,100% { transform: translate(0,0) scale(1);} 50% { transform: translate(30px,-26px) scale(1.08);} }
+    @media (max-width: 920px) {
+      .content-grid-2, .content-grid-3, .content-grid-4, .content-grid-5, .qr-grid { grid-template-columns: 1fr; }
+      .table { font-size: .84rem; }
+      .pipe-arrow { display:none; }
+    }
+  </style>
+</head>
+<body>
+<div class="deck">
+
+  <!-- 1. Title -->
+  <div class="slide slide-1 active" data-slide="1">
+    <div class="gradient-mesh">
+      <div class="blob" style="width:460px;height:460px;top:-120px;right:-100px;background:#50c8ff;opacity:.14"></div>
+      <div class="blob" style="width:340px;height:340px;bottom:-100px;left:-70px;background:#7c5cff;opacity:.15"></div>
+      <div class="blob" style="width:220px;height:220px;top:35%;left:14%;background:#25d0a5;opacity:.12"></div>
+    </div>
+    <canvas class="particle-canvas" style="position:absolute; inset:0; z-index:1"></canvas>
+    <div class="content">
+      <div class="content-grid-2">
+        <div>
+          <div class="pill reveal">AI Product Hack · Альфа-Банк · промежуточная защита</div>
+          <h1 class="big-title reveal" style="margin:.9rem 0 1rem; background:linear-gradient(135deg,#18253a 0%, #2a7dc4 48%, #25d0a5 100%); -webkit-background-clip:text; background-clip:text; color:transparent;">Агент проверки<br>контрагентов</h1>
+          <p class="reveal" style="max-width: 58ch; font-size:1.14rem; color:#324763; line-height:1.55;">Объяснимый ИИ поверх банковского отчёта: краткая сводка рисков, сравнение нескольких компаний в одной сессии и ответы только по данным отчёта.</p>
+          <div class="reveal" style="display:flex; gap:1rem; margin-top:1.35rem; flex-wrap:wrap; color:#617895; font-size:.95rem;">
+            <span>Илья Спевак · AI Product</span>
+            <span>Алексей Коновалов · AI Engineer</span>
+            <span>Павел Милютин · AI Engineer</span>
+          </div>
+          <div class="reveal" style="margin-top:.7rem; color:#8194ac; font-size:.9rem;">04.09.2026 · финал 07.09</div>
+        </div>
+        <div class="glass hero-card reveal" style="align-self:center;">
+          <div class="kicker">В одном кадре</div>
+          <div class="content-grid-3" style="margin-top:1rem;">
+            <div><div class="metric">100</div><div style="color:#617895;">отчётов в выгрузке</div></div>
+            <div><div class="metric">40+</div><div style="color:#617895;">правил сигналов</div></div>
+            <div><div class="metric">2–5</div><div style="color:#617895;">компаний в сессии</div></div>
+          </div>
+          <div class="roadline" style="margin:1.2rem 0 1rem;"></div>
+          <div style="display:grid; gap:.7rem; color:#425978; font-size:.98rem;">
+            <div>ИНН → отчёт → детерминированные сигналы → LLM‑сводка и Q&amp;A.</div>
+            <div>Без собственного скоринга: <strong style="color:#1c2c45;">risk_level</strong> банка — входной факт.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Problem -->
+  <div class="slide" data-slide="2">
+    <div class="gradient-mesh"><div class="blob" style="width:360px;height:360px;top:-90px;right:-60px;background:#50c8ff;opacity:.08"></div><div class="blob" style="width:260px;height:260px;bottom:-80px;left:-50px;background:#7c5cff;opacity:.08"></div></div>
+    <div class="content">
+      <div class="kicker reveal">Слайд 2</div>
+      <h2 class="section-title reveal" style="margin:.45rem 0 1rem;">Проблема</h2>
+      <div class="content-grid-2">
+        <div class="glass reveal" style="padding:1.35rem 1.4rem;">
+          <p style="font-size:1.08rem; line-height:1.6; color:#30455f;">Перед сделкой нужно оценить несколько контрагентов, а продукт банка выдаёт длинный отчёт — по одной компании за раз. Разделов становится всё больше, значимый сигнал легко пропустить.</p>
+          <div style="margin-top:1rem; display:grid; gap:.7rem;">
+            <div class="pill">10–12 разделов в отчёте</div>
+            <div class="pill">Поштучная проверка кандидатов</div>
+            <div class="pill">Смотрят только метку риска</div>
+            <div class="pill">Падает retention продукта</div>
+          </div>
+        </div>
+        <div class="glass reveal" style="padding:1.35rem 1.4rem;">
+          <div class="kicker">AJTBD</div>
+          <p style="margin-top:.8rem; font-size:1.04rem; line-height:1.65; color:#324a67;">Когда перед сделкой нужно выбрать контрагента, хочу быстро понять, <span style="color:#2a7dc4; font-weight:700;">с кем безопасно работать</span> и что проверить дополнительно, чтобы не читать полный отчёт по каждой компании отдельно.</p>
+          <div style="margin-top:1rem; color:#0d9488; font-weight:700;">Цель продукта банка — вовлечённость и возврат к проверкам, не факт сделки.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Audience & market -->
+  <div class="slide" data-slide="3">
+    <div class="gradient-mesh"><div class="blob" style="width:320px;height:320px;top:-60px;left:-40px;background:#25d0a5;opacity:.08"></div><div class="blob" style="width:320px;height:320px;bottom:-100px;right:-70px;background:#7c5cff;opacity:.08"></div></div>
+    <div class="content">
+      <div class="kicker reveal">Слайд 3</div>
+      <h2 class="section-title reveal" style="margin:.45rem 0 1rem;">Аудитория и рынок</h2>
+      <div class="content-grid-2">
+        <div class="glass reveal" style="padding:1.2rem;">
+          <table class="table">
+            <thead><tr><th>Роль</th><th>Кто</th><th>Зачем</th></tr></thead>
+            <tbody>
+              <tr><td>Пользователь MVP</td><td>Предприниматель МСП, клиент банка</td><td>Оценить риски до сделки</td></tr>
+              <tr><td>Как сейчас</td><td>Отчёт по ИНН вручную</td><td>Сравнивает кандидатов «в голове»</td></tr>
+              <tr><td>Заказчик кейса</td><td>Продукт «Проверка контрагента»</td><td>Retention и ценность отчёта</td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:1rem; color:#3f5572; font-size:.95rem; line-height:1.55;">Конкуренты с ИИ‑слоем: Контур.Фокус (сравнение до 5), СПАРК‑Интерфакс, Rusprofile «Эксперт». Без выраженного ИИ: Checko, Saby, Глобас, ЗаЧестныйБизнес.</div>
+        </div>
+        <div class="glass reveal" style="padding:1.2rem; display:grid; gap:.7rem;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; gap:1rem;">
+            <span style="display:inline-flex; align-items:center; height:1.4rem; padding:0 .55rem; border-radius:6px; background:rgba(37,125,196,.1); color:#2a7dc4; font-weight:700; font-size:.8rem;">Рынок</span>
+            <span style="text-align:right; font-weight:700; color:#1c2c45;">растёт: ИИ поверх отчётов — уже норма</span>
+          </div>
+          <div style="font-size:.88rem; color:#5f7797; line-height:1.5; padding-bottom:.55rem; border-bottom:1px solid rgba(15,23,42,.07);">Ёмкость для кейса = клиенты банковского продукта. Не standalone SaaS — слой внутри Альфа‑Банка.</div>
+          <div style="display:flex; align-items:baseline; justify-content:space-between; gap:1rem;">
+            <span style="display:inline-flex; align-items:center; height:1.4rem; padding:0 .55rem; border-radius:6px; background:rgba(37,125,196,.1); color:#2a7dc4; font-weight:700; font-size:.8rem;">Монетизация</span>
+            <span style="text-align:right; font-weight:700; color:#1c2c45;">тариф / пакет продукта банка</span>
+          </div>
+          <div style="font-size:.88rem; color:#5f7797; line-height:1.5; padding-bottom:.55rem; border-bottom:1px solid rgba(15,23,42,.07);">Эффект — повторные проверки и удержание, не отдельный P&amp;L хакатона.</div>
+          <div class="roadline" style="margin:.35rem 0 .2rem"></div>
+          <div style="color:#3f5572; line-height:1.55;">Наше отличие: <span style="color:#0d9488; font-weight:700;">объяснимый анализ данных банка</span> со ссылками на поля, без собственного скоринга.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Product & solution -->
+  <div class="slide" data-slide="4">
+    <div class="gradient-mesh"><div class="blob" style="width:320px;height:320px;top:8%;right:-60px;background:#50c8ff;opacity:.08"></div><div class="blob" style="width:220px;height:220px;bottom:-40px;left:10%;background:#25d0a5;opacity:.08"></div></div>
+    <div class="content">
+      <div class="kicker reveal">Слайд 4</div>
+      <h2 class="section-title reveal" style="margin:.45rem 0 1rem;">Продукт и решение</h2>
+      <div class="glass reveal" style="padding:1.1rem 1.25rem; margin-bottom:1rem; font-size:1.06rem; color:#324a67;">В 7 словах: <span style="color:#2a7dc4; font-weight:800;">сравнивает компании и объясняет риски по фактам.</span></div>
+      <div class="content-grid-4">
+        <div class="glass reveal" style="padding:1rem;"><div class="kicker">1. ИНН</div><div style="margin-top:.6rem; color:#415976;">Пользователь добавляет 2–5 контрагентов в сессию из выгрузки.</div></div>
+        <div class="glass reveal" style="padding:1rem;"><div class="kicker">2. Сигналы</div><div style="margin-top:.6rem; color:#415976;">Детерминированные правила собирают факты, пробелы и слоты сводки.</div></div>
+        <div class="glass reveal" style="padding:1rem;"><div class="kicker">3. Сводка</div><div style="margin-top:.6rem; color:#415976;">Risk summary 4–5 фактов + сравнение без ранжирования «лучше/хуже».</div></div>
+        <div class="glass reveal" style="padding:1rem;"><div class="kicker">4. Q&amp;A</div><div style="margin-top:.6rem; color:#415976;">Уточнения только по полям отчёта + рекомендация следующего шага.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Specifica / approach -->
+  <div class="slide" data-slide="5">
+    <div class="gradient-mesh"><div class="blob" style="width:350px;height:350px;top:-90px;right:-80px;background:#7c5cff;opacity:.08"></div><div class="blob" style="width:260px;height:260px;bottom:-50px;left:-50px;background:#50c8ff;opacity:.08"></div></div>
+    <div class="content">
+      <div class="kicker reveal">Слайд 5</div>
+      <h2 class="section-title reveal" style="margin:.45rem 0 1rem;">Подход и схема</h2>
+      <div class="glass reveal" style="padding:1rem 1.15rem; margin-bottom:1rem; color:#405774;">LLM не решает, что важно: между данными и моделью — слой правил.</div>
+      <div style="display:grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto 1fr; gap:.45rem; align-items:stretch; margin-bottom:1rem;" class="reveal">
+        <div class="glass" style="padding:.85rem;"><div class="kicker">1</div><div style="margin-top:.4rem; font-weight:700; color:#1c2c45;">Отчёт</div><div style="margin-top:.25rem; font-size:.84rem; color:#5f7797;">JSON / CSV</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="glass" style="padding:.85rem;"><div class="kicker">2</div><div style="margin-top:.4rem; font-weight:700; color:#1c2c45;">Нормализация</div><div style="margin-top:.25rem; font-size:.84rem; color:#5f7797;">$date, типы</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="glass" style="padding:.85rem;"><div class="kicker">3</div><div style="margin-top:.4rem; font-weight:700; color:#1c2c45;">Правила</div><div style="margin-top:.25rem; font-size:.84rem; color:#5f7797;">40+ IF/THEN</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="glass" style="padding:.85rem;"><div class="kicker">4</div><div style="margin-top:.4rem; font-weight:700; color:#1c2c45;">Сигналы</div><div style="margin-top:.25rem; font-size:.84rem; color:#5f7797;">slots / gaps</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="glass" style="padding:.85rem;"><div class="kicker">5</div><div style="margin-top:.4rem; font-weight:700; color:#1c2c45;">LLM</div><div style="margin-top:.25rem; font-size:.84rem; color:#5f7797;">сводка, Q&amp;A</div></div>
+      </div>
+      <div class="content-grid-2">
+        <div class="glass reveal" style="padding:1.1rem;">
+          <table class="table compact-rows">
+            <thead><tr><th>Компонент</th><th>Стек</th></tr></thead>
+            <tbody>
+              <tr><td>Агент</td><td>LangChain + LangGraph memory</td></tr>
+              <tr><td>Инструменты</td><td>MCP streamable HTTP</td></tr>
+              <tr><td>LLM</td><td>Qwen (vLLM / API)</td></tr>
+              <tr><td>UI</td><td>Gradio</td></tr>
+              <tr><td>Ops</td><td>Docker Compose</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="glass reveal" style="padding:1.1rem; display:grid; gap:.75rem; align-content:start;">
+          <div><div class="metric" style="font-size:2.2rem;">risk_level</div><div style="color:#617895;">вход банка — не пересчитываем</div></div>
+          <div style="color:#415976; line-height:1.55;">Каждый факт в сводке имеет ID правила и поле‑источник. Рекомендации — из таблицы «сигнал → шаг», без вердикта «не работать».</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Metrics / experiments -->
+  <div class="slide" data-slide="6">
+    <div class="gradient-mesh"><div class="blob" style="width:330px;height:330px;top:-90px;left:-40px;background:#25d0a5;opacity:.08"></div><div class="blob" style="width:280px;height:280px;bottom:-60px;right:-50px;background:#7c5cff;opacity:.08"></div></div>
+    <div class="content">
+      <div class="kicker reveal">Слайд 6</div>
+      <h2 class="section-title reveal" style="margin:.45rem 0 1rem;">Метрики и эксперименты</h2>
+      <div class="glass reveal" style="padding:1.1rem 1.2rem; margin-bottom:1rem; color:#405774;">Правила прогнаны на всей выгрузке 100 отчётов — до написания движка. Итерации меняли сами правила.</div>
+      <div class="content-grid-2">
+        <div class="glass reveal" style="padding:1.2rem;">
+          <table class="table">
+            <thead><tr><th>Сигнал / итог</th><th>На 100</th></tr></thead>
+            <tbody>
+              <tr><td>Сводки 4 / 5 фактов</td><td><strong>41 / 59</strong></td></tr>
+              <tr><td>FIN_MISSING (нет отчётности)</td><td><strong>33</strong></td></tr>
+              <tr><td>EP_ACTIVE (активные ИП)</td><td><strong>18</strong></td></tr>
+              <tr><td>REG_CLEAN (реестры чисты)</td><td><strong>76</strong></td></tr>
+              <tr><td>LICENSE_OKVED_GAP ложных</td><td><strong>29 → убрано</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:grid; gap:.7rem; align-content:start;">
+          <div class="glass reveal" style="padding:.75rem .95rem;">
+            <div style="display:flex; justify-content:space-between; gap:.6rem;"><span style="color:#1c2c45; font-weight:700;">Покрытие сводок</span><span style="font-weight:800; color:#2a7dc4;">100%</span></div>
+            <div class="bar-track" style="margin-top:.5rem;"><div class="bar-fill" data-width="100"></div></div>
+            <div style="margin-top:.5rem; font-size:.82rem; color:#5f7797; line-height:1.45;">Слоты 1–4 всегда заполнены (есть gap/info‑fallback).</div>
+          </div>
+          <div class="glass reveal" style="padding:.75rem .95rem;">
+            <div style="display:flex; justify-content:space-between; gap:.6rem;"><span style="color:#1c2c45; font-weight:700;">riskLevel LOW</span><span style="font-weight:800; color:#2a7dc4;">78%</span></div>
+            <div class="bar-track" style="margin-top:.5rem;"><div class="bar-fill" data-width="78"></div></div>
+            <div style="margin-top:.5rem; font-size:.82rem; color:#5f7797; line-height:1.45;">MEDIUM 15 · HIGH 4 · UNKNOWN 3. 25 ИП без финотчётности — норма.</div>
+          </div>
+          <div class="glass reveal" style="padding:.75rem .95rem; display:grid; gap:.45rem;">
+            <div style="font-size:.84rem; color:#465f7e; line-height:1.45;"><strong style="color:#1c2c45;">Тех:</strong> 0 выдуманных фактов, ссылки на поля, воспроизводимые слоты.</div>
+            <div style="font-size:.84rem; color:#465f7e; line-height:1.45;"><strong style="color:#1c2c45;">Продукт (RAT):</strong> время до вывода, ≥2 различия, решение без полного отчёта.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Demo -->
+  <div class="slide" data-slide="7">
+    <div class="gradient-mesh"><div class="blob" style="width:380px;height:380px;top:-110px;right:-90px;background:#7c5cff;opacity:.1"></div><div class="blob" style="width:300px;height:300px;bottom:-70px;left:-50px;background:#50c8ff;opacity:.08"></div></div>
+    <canvas class="particle-canvas-ambient" style="position:absolute; inset:0; z-index:1"></canvas>
+    <div class="content">
+      <div class="kicker reveal">Слайд 7</div>
+      <h2 class="section-title reveal" style="margin:.45rem 0 1rem;">Демо</h2>
+      <div class="glass reveal" style="padding:1.3rem 1.4rem; margin-bottom:1rem;">
+        <div class="kicker">Happy path к 07.09</div>
+        <p style="margin-top:.7rem; font-size:1.08rem; color:#324a67; line-height:1.6;">ИНН → 2–5 компаний → сравнение + risk summary → различия без «кто лучше» → Q&amp;A со ссылками → решение пользователя.</p>
+        <div style="margin-top:.9rem; color:#8194ac; font-size:.9rem;">Сейчас: схема и пример слотов. Видео‑запись экрана — к финалу (не QR на 5 минут).</div>
+      </div>
+      <div class="content-grid-5 reveal">
+        <div class="glass" style="padding:.9rem;"><div class="kicker">Слот 1</div><div style="margin-top:.45rem; font-size:.88rem; color:#415976;">Оценка банка + ЗСК</div></div>
+        <div class="glass" style="padding:.9rem;"><div class="kicker">Слот 2</div><div style="margin-top:.45rem; font-size:.88rem; color:#415976;">Финансы / gap</div></div>
+        <div class="glass" style="padding:.9rem;"><div class="kicker">Слот 3</div><div style="margin-top:.45rem; font-size:.88rem; color:#415976;">Юр. события</div></div>
+        <div class="glass" style="padding:.9rem;"><div class="kicker">Слот 4</div><div style="margin-top:.45rem; font-size:.88rem; color:#415976;">Реестры ФНС</div></div>
+        <div class="glass" style="padding:.9rem;"><div class="kicker">Слот 5</div><div style="margin-top:.45rem; font-size:.88rem; color:#415976;">Следующий шаг</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. Advantages -->
+  <div class="slide" data-slide="8">
+    <div class="gradient-mesh"><div class="blob" style="width:310px;height:310px;top:-60px;left:-50px;background:#25d0a5;opacity:.08"></div><div class="blob" style="width:260px;height:260px;bottom:-50px;right:-40px;background:#7c5cff;opacity:.08"></div></div>
+    <div class="content">
+      <div class="kicker reveal">Слайд 8</div>
+      <h2 class="section-title reveal" style="margin:.45rem 0 1rem;">Преимущества</h2>
+      <div class="content-grid-3" style="margin-bottom:1rem;">
+        <div class="glass reveal" style="padding:.95rem 1.05rem;"><div class="kicker">01</div><div style="margin-top:.6rem; font-weight:700; color:#1c2c45;">Правила + LLM</div><div style="margin-top:.4rem; color:#465f7e; font-size:.92rem; line-height:1.45;">Сигналы проверяемы и воспроизводимы; модель только формулирует текст по готовым слотам.</div></div>
+        <div class="glass reveal" style="padding:.95rem 1.05rem;"><div class="kicker">02</div><div style="margin-top:.6rem; font-weight:700; color:#1c2c45;">Сравнение в сессии</div><div style="margin-top:.4rem; color:#465f7e; font-size:.92rem; line-height:1.45;">2–5 кандидатов по одним критериям — ответ на боль «десять отчётов подряд».</div></div>
+        <div class="glass reveal" style="padding:.95rem 1.05rem;"><div class="kicker">03</div><div style="margin-top:.6rem; font-weight:700; color:#1c2c45;">Grounding</div><div style="margin-top:.4rem; color:#465f7e; font-size:.92rem; line-height:1.45;">Ссылки на поля отчёта, явные пробелы, без вердикта «не работать».</div></div>
+      </div>
+      <div class="glass reveal" style="padding:.35rem .9rem;">
+        <table class="table compact-rows" style="font-size:.9rem;">
+          <thead><tr><th style="width:48%;">Мы</th><th>Аналоги / «просто чат»</th></tr></thead>
+          <tbody>
+            <tr><td>Данные банка + готовый risk_level</td><td>Свой скоринг или каталог компаний</td></tr>
+            <tr><td>Различия без «кто лучше»</td><td>Рейтинг или один отчёт</td></tr>
+            <tr><td>Пробел ≠ «всё хорошо»</td><td>Пустое место как отсутствие риска</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. Risks -->
+  <div class="slide" data-slide="9">
+    <div class="gradient-mesh"><div class="blob" style="width:340px;height:340px;top:-80px;right:-60px;background:#50c8ff;opacity:.08"></div><div class="blob" style="width:260px;height:260px;bottom:-60px;left:-40px;background:#25d0a5;opacity:.08"></div></div>
+    <div class="content">
+      <div class="kicker reveal">Слайд 9</div>
+      <h2 class="section-title reveal" style="margin:.45rem 0 1rem;">Риски</h2>
+      <div class="content-grid-2">
+        <div class="glass reveal" style="padding:1.15rem;">
+          <div class="kicker">Управляемые</div>
+          <ul class="list-tight" style="margin-top:.8rem; color:#415976; line-height:1.5; padding-left:1rem;">
+            <li><strong>Галлюцинации LLM:</strong> grounding, только извлечённые сигналы, ссылки на поля.</li>
+            <li><strong>Ждут вердикт «кто лучше»:</strong> формат «различия + что проверить».</li>
+            <li><strong>Ложные правила:</strong> прогон на 100 отчётах (убрали LICENSE_OKVED_GAP).</li>
+          </ul>
+        </div>
+        <div class="glass reveal" style="padding:1.15rem;">
+          <div class="kicker">Критичный (RAT)</div>
+          <ul class="list-tight" style="margin-top:.8rem; color:#415976; line-height:1.5; padding-left:1rem;">
+            <li><strong>Нет доверия к summary:</strong> агент останется декорацией над ручным процессом.</li>
+            <li><strong>Митигация:</strong> факты + ссылки; тест без полного отчёта на 3 компаниях с разным risk_level.</li>
+            <li><strong>Неполные данные:</strong> явный gap, не «безопасно».</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. Done + plan / AI usage -->
+  <div class="slide" data-slide="10">
+    <div class="gradient-mesh"><div class="blob" style="width:300px;height:300px;top:-70px;right:-30px;background:#50c8ff;opacity:.08"></div><div class="blob" style="width:260px;height:260px;bottom:-60px;left:-50px;background:#25d0a5;opacity:.08"></div></div>
+    <div class="content" style="justify-content:flex-start; overflow-y:auto; max-height:100%; padding-top:1.5rem; padding-bottom:5.5rem;">
+      <div class="kicker reveal">Слайд 10</div>
+      <h2 class="section-title reveal" style="margin:.3rem 0 .5rem;">Статус и план до финала</h2>
+      <div class="reveal" style="display:flex; flex-wrap:wrap; align-items:baseline; gap:.5rem 1rem; margin-bottom:.7rem; color:#48607d;">
+        <span style="font-size:1.4rem; font-weight:800; color:#1c2c45;">Промежуточная · 04.09</span>
+        <span style="font-size:.95rem;">продукт и правила готовы · движок и UI сравнения — до 07.09</span>
+      </div>
+      <div class="glass reveal" style="padding:.35rem .9rem;">
+        <table class="table compact-rows stage-table" style="font-size:.82rem;">
+          <thead><tr><th style="width:14%;">Срок</th><th style="width:14%;">Статус</th><th style="width:36%;">Что</th><th style="width:36%;">Кто</th></tr></thead>
+          <tbody>
+            <tr class="row-highlight"><td><b>Готово</b></td><td><div class="pct-cell"><div class="pct-bar hi"><span style="width:100%;"></span></div><b>✓</b></div></td><td>Context pack, Q&amp;A, profile_fields, signal_rules, промпт, scaffold</td><td>вся команда</td></tr>
+            <tr><td>04.09</td><td><div class="pct-cell"><div class="pct-bar"><span style="width:40%;"></span></div><b>→</b></div></td><td>Merge scaffold; MCP get_report_by_inn</td><td>Алексей, Павел</td></tr>
+            <tr><td>05.09</td><td><div class="pct-cell"><div class="pct-bar"><span style="width:20%;"></span></div><b>→</b></div></td><td>Движок правил + risk summary + grounded Q&amp;A</td><td>Алексей, Павел</td></tr>
+            <tr><td>06.09</td><td><div class="pct-cell"><div class="pct-bar"><span style="width:10%;"></span></div><b>→</b></div></td><td>Сравнение 2–5, UI, тест RAT, grounding</td><td>Павел, Илья</td></tr>
+            <tr><td>07.09</td><td><div class="pct-cell"><div class="pct-bar"><span style="width:5%;"></span></div><b>→</b></div></td><td>Видео‑демо, финальные материалы, защита</td><td>Илья + команда</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="glass reveal" style="margin-top:.7rem; padding:.7rem 1rem; border-left:3px solid #25d0a5; color:#3f5572; line-height:1.5; font-size:.92rem;"><b style="color:#1c2c45;">ИИ в работе:</b> Cursor + Speckit для спецификаций; скрипты анализа выгрузки; человек фиксирует правила, границы MVP и интерпретацию данных.</div>
+    </div>
+  </div>
+
+  <!-- 11. Team + materials -->
+  <div class="slide" data-slide="11">
+    <div class="gradient-mesh">
+      <div class="blob" style="width:460px;height:460px;top:-120px;right:-120px;background:#50c8ff;opacity:.10"></div>
+      <div class="blob" style="width:320px;height:320px;bottom:-80px;left:-60px;background:#7c5cff;opacity:.10"></div>
+      <div class="blob" style="width:220px;height:220px;top:36%;left:18%;background:#25d0a5;opacity:.08"></div>
+    </div>
+    <canvas class="particle-canvas" style="position:absolute; inset:0; z-index:1"></canvas>
+    <div class="content" style="text-align:center;">
+      <div class="kicker reveal">Слайд 11</div>
+      <h2 class="big-title reveal" style="font-size:clamp(2.2rem,4.8vw,4.4rem); margin:.5rem 0 .7rem; background:linear-gradient(135deg,#18253a 0%, #2a7dc4 48%, #25d0a5 100%); -webkit-background-clip:text; background-clip:text; color:transparent;">Команда и материалы</h2>
+      <div class="content-grid-3 reveal" style="text-align:left; margin:0 auto 1.1rem; max-width:1000px;">
+        <div class="glass" style="padding:1rem 1.1rem;">
+          <div class="kicker">AI Product</div>
+          <div style="margin-top:.5rem; font-weight:800; color:#1c2c45;">Илья Спевак</div>
+          <div style="margin-top:.35rem; color:#5f7797; font-size:.88rem; line-height:1.45;">Framing, Q&amp;A, правила, RAT · участие полное</div>
+        </div>
+        <div class="glass" style="padding:1rem 1.1rem;">
+          <div class="kicker">AI Engineer</div>
+          <div style="margin-top:.5rem; font-weight:800; color:#1c2c45;">Алексей Коновалов</div>
+          <div style="margin-top:.35rem; color:#5f7797; font-size:.88rem; line-height:1.45;">Агент, pipeline, rules engine · участие полное</div>
+        </div>
+        <div class="glass" style="padding:1rem 1.1rem;">
+          <div class="kicker">AI Engineer</div>
+          <div style="margin-top:.5rem; font-weight:800; color:#1c2c45;">Павел Милютин</div>
+          <div style="margin-top:.35rem; color:#5f7797; font-size:.88rem; line-height:1.45;">Данные, MCP, UI · участие полное</div>
+        </div>
+      </div>
+      <div class="qr-grid">
+        <div class="glass qr-card reveal" style="padding:1.2rem; text-align:center;">
+          <div class="kicker">Репозиторий</div>
+          <div style="margin-top:.55rem; color:#1b2a43; font-weight:700;">Код, выгрузка, спецификации</div>
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=12&data=https%3A%2F%2Fgithub.com%2FCyX4Puk%2FAITHackathon" alt="QR-код репозитория">
+          <div style="margin-top:.8rem;"><a href="https://github.com/CyX4Puk/AITHackathon" target="_blank" rel="noopener noreferrer" style="color:#2a7dc4; text-decoration:none; font-weight:700;">github.com/CyX4Puk/AITHackathon</a></div>
+        </div>
+        <div class="glass qr-card reveal" style="padding:1.2rem; text-align:center;">
+          <div class="kicker">Описание проекта</div>
+          <div style="margin-top:.55rem; color:#1b2a43; font-weight:700;">Промежуточная версия в Markdown</div>
+          <div style="margin:1.4rem auto; max-width:28ch; color:#48607d; font-size:.95rem; line-height:1.5;">reqs/materials_to_load/project_description.md</div>
+          <div style="margin-top:.4rem; color:#8194ac; font-size:.85rem;">+ product_materials.md · signal_rules.md</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="nav-controls">
+  <div class="timer-box" id="timerBox"><span class="timer-dot"></span><span id="countdown">07:00</span></div>
+  <button class="nav-btn" onclick="changeSlide(-1)" aria-label="Предыдущий слайд">&#8249;</button>
+  <div class="slide-dots" id="dots"></div>
+  <button class="nav-btn" onclick="changeSlide(1)" aria-label="Следующий слайд">&#8250;</button>
+  <span class="slide-counter" id="counter">1 / 11</span>
+</div>
+
+<script>
+let current = 1;
+const total = document.querySelectorAll('.slide').length;
+const dotsContainer = document.getElementById('dots');
+const counter = document.getElementById('counter');
+for (let i = 1; i <= total; i++) {
+  const dot = document.createElement('div');
+  dot.className = 'dot' + (i === 1 ? ' active' : '');
+  dot.onclick = () => goToSlide(i);
+  dotsContainer.appendChild(dot);
+}
+function goToSlide(n) {
+  const prev = document.querySelector('.slide.active');
+  const next = document.querySelector(`.slide[data-slide="${n}"]`);
+  if (prev) prev.classList.remove('active');
+  if (next) { next.classList.add('active'); animateSlide(next); }
+  current = n; updateNav();
+}
+function changeSlide(dir) {
+  let next = current + dir;
+  if (next < 1) next = total;
+  if (next > total) next = 1;
+  goToSlide(next);
+}
+function updateNav() {
+  document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i + 1 === current));
+  counter.textContent = current + ' / ' + total;
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); changeSlide(1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); changeSlide(-1); }
+});
+let touchStartX = 0;
+document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+document.addEventListener('touchend', (e) => {
+  const diff = touchStartX - e.changedTouches[0].clientX;
+  if (Math.abs(diff) > 50) changeSlide(diff > 0 ? 1 : -1);
+});
+function animateSlide(slide) {
+  slide.querySelectorAll('.reveal').forEach((el, i) => {
+    el.style.transition = 'none';
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(18px)';
+    el.offsetHeight;
+    const delay = i * 0.08;
+    el.style.transition = `opacity .35s ease ${delay}s, transform .35s ease ${delay}s`;
+    el.style.opacity = '1';
+    el.style.transform = 'translateY(0px)';
+  });
+  slide.querySelectorAll('.bar-fill').forEach((bar, i) => {
+    bar.style.width = '0%';
+    bar.style.transition = `width .6s ease ${i * 0.12}s`;
+    bar.offsetHeight;
+    bar.style.width = (bar.dataset.width || 0) + '%';
+  });
+}
+document.addEventListener('mousemove', (e) => {
+  document.body.style.backgroundImage = `radial-gradient(600px circle at ${e.clientX}px ${e.clientY}px, rgba(80,200,255,.05), transparent 40%)`;
+});
+window.initParticles = function(canvas, options) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  const interactive = options.interactive !== false;
+  const count = options.count || 30;
+  let mx = -1000, my = -1000;
+  const particles = Array.from({ length: count }, () => ({
+    x: Math.random()*canvas.width, y: Math.random()*canvas.height,
+    vx:(Math.random()-.5)*.35, vy:(Math.random()-.5)*.35,
+    size:Math.random()*2.2+.8, alpha:Math.random()*.35+.08
+  }));
+  if (interactive) {
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mx = e.clientX - rect.left; my = e.clientY - rect.top;
+    });
+    canvas.addEventListener('mouseleave', () => { mx = -1000; my = -1000; });
+  }
+  (function animate(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p => {
+      if (interactive) {
+        const dx = p.x - mx, dy = p.y - my;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 120) {
+          const force = (120 - dist) / 120 * 1.8;
+          p.vx += (dx / (dist || 1)) * force * .08;
+          p.vy += (dy / (dist || 1)) * force * .08;
+        }
+      }
+      p.vx *= .985; p.vy *= .985; p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0;
+      if (p.y < 0) p.y = canvas.height; if (p.y > canvas.height) p.y = 0;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(80,200,255,${p.alpha})`; ctx.fill();
+    });
+    requestAnimationFrame(animate);
+  })();
+};
+document.querySelectorAll('.particle-canvas').forEach(c => window.initParticles(c, { interactive: true, count: 48 }));
+document.querySelectorAll('.particle-canvas-ambient').forEach(c => window.initParticles(c, { interactive: false, count: 18 }));
+const countdownEl = document.getElementById('countdown');
+const timerBox = document.getElementById('timerBox');
+let remaining = 420; // 7 минут — промежуточная защита
+function paintTimer(){
+  const m = String(Math.floor(remaining/60)).padStart(2,'0');
+  const s = String(remaining%60).padStart(2,'0');
+  countdownEl.textContent = `${m}:${s}`;
+  timerBox.classList.toggle('warn', remaining <= 120 && remaining > 60);
+  timerBox.classList.toggle('danger', remaining <= 60);
+}
+paintTimer();
+setInterval(()=>{ if(remaining>0){ remaining--; paintTimer(); } },1000);
+animateSlide(document.querySelector('.slide.active'));
+</script>
+</body>
+</html>

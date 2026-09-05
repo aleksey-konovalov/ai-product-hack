@@ -5,7 +5,11 @@
     "base_url": "http://localhost:1234/v1",
     "api_key_env": "any",
     "temperature":0.2,
-    "top_p":0.9
+    "top_p":0.9,
+    "extra_body": {
+      "reasoning_effort": "low",
+      "chat_template_kwargs": {"enable_thinking": false}
+    }
   },
   "api_qwen_agent": {
     "provider": "openai",
