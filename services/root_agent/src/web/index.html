@@ -314,7 +314,6 @@
         </div>
         <div class="launcher-examples">
           <button type="button" class="chip" data-q="проверь 9721159668">Проверить 9721159668</button>
-          <button type="button" class="chip" data-q="Доступные ИНН">Показать доступные ИНН</button>
           <button type="button" class="chip" data-q="проверь 9721159668 и 1660266560">Сравнить 9721159668 и 1660266560</button>
         </div>
       </div>
@@ -1134,11 +1133,11 @@ function suggestions(){
 }
 function suggestBase(){
   const n=S.session.length, c=DB[S.selected];
-  if(!n) return ['Доступные ИНН','проверь 9721159668'];
+  if(!n) return ['проверь 9721159668'];
   if(n===1){
     if(S.ctx==='fin') return ['Есть ли долги и суды?','Чего не хватает в отчёте?','Что проверить до сделки?'];
     if(S.ctx==='legal') return ['Что с финансами?','Чего не хватает в отчёте?','Что проверить до сделки?'];
-    return ['Что с финансами?','Что проверить до сделки?','Доступные ИНН'];
+    return ['Что с финансами?','Есть ли долги и суды?','Что проверить до сделки?'];
   }
   const two=cs().slice(0,2);
   if(n>1&&(S.ctx==='compare'||S.ctx==='diffs')){
@@ -1157,8 +1156,11 @@ function suggestBase(){
 function renderSuggest(){
   document.querySelectorAll('.suggest').forEach(e=>e.remove());
   const last=[...document.querySelectorAll('.msg.agent')].pop(); if(!last) return;
+  // Подсказки от модели (по последнему ответу/данным инструмента) имеют приоритет;
+  // пустой список от модели означает «подсказок нет» — строку не рисуем.
+  const list = Array.isArray(S._turnSuggestions) ? S._turnSuggestions : suggestions();
+  if(!list.length){ $('#msgs').scrollTop=1e9; return; }
   const s=document.createElement('div'); s.className='suggest';
-  const list=(S._turnSuggestions&&S._turnSuggestions.length)?S._turnSuggestions:suggestions();
   s.innerHTML=`<span class="lbl">Дальше:</span>`+list.map(p=>`<button class="chip" data-q="${esc(p)}">${esc(p)}</button>`).join('');
   last.appendChild(s); $('#msgs').scrollTop=1e9;
 }
@@ -1177,47 +1179,20 @@ S._turnSuggestions=null;
 const _ruleBrief=llmBriefText;
 llmBriefText=function(c){ return (c && c._brief && c._brief.length) ? c._brief : _ruleBrief(c); };
 
-/* БД компании (facts/gaps/steps) → analyze_results для модели (роль MCP analyze) */
-function buildAnalyze(c){
-  const sig=(f,i)=>({id:'SIG_'+i+'_'+f.slot.split(' ')[0].toUpperCase(),polarity:f.pol,fields:f.refs||[],message:f.text,slot:f.slot});
-  const signals=c.facts.map(sig);
-  if(c.headline){ const id=/банкрот/i.test(c.headline)?'REG_BANKRUPTCY':/исключени/i.test(c.headline)?'STATUS_PENDING_EXCLUSION':'STATUS_REASON';
-    signals.unshift({id,polarity:'negative',fields:['status.reasonName'],message:c.headline,slot:'Оценка банка'}); }
-  const gaps=(c.gaps||[]).map((g,i)=>({id:'GAP_'+i,text:g.text,ref:g.ref}));
-  const next_steps=(c.steps||[]).map((s,i)=>({signal_id:'STEP_'+i,text:s.text,why:s.why}));
-  const deal=(S.deal&&(S.deal.goal||S.deal.amount))?{goal:S.deal.goal,amount:S.deal.amount}:null;
-  return {inn:c.inn,assessment_given:!!c._briefed,profile:{name:c.name,short:c.short,isIP:!!c.isIP,okved:c.okved,age:c.age,riskLabel:RISK[c.risk][0],zskLabel:ZSK[c.zsk][0],reg:c.reg,report:c.report},
-    deal_context:deal,signals,gaps,summary_slots:signals.map(s=>s.id),next_steps};
-}
-
-/* Что отдать модели, а что оставить детерминированным (чистые данные/выборки).
-   Возвращает 'summary' | 'model' | null. qa/compare модель выбирает сама. */
-function pickKind(text){
+/* Единственное, что остаётся на клиенте — изменение состояния сессии (удалить/очистить),
+   т.к. модель не может напрямую менять сессию в браузере. Заглушек-ответов нет:
+   всё остальное (приветствия, вопросы, «доступные», сравнение, фильтры) обрабатывает агент. */
+function isClientOp(text){
   const t=text.toLowerCase().trim();
-  const inns=(text.match(/\d{10,12}/g)||[]).filter(x=>x.length===10||x.length===12);
-  // --- Детерминированно (НЕ к модели): только отрисовка данных/состояния ---
-  if(/^(убери|удали|исключи|очист|сброс|начать заново)/.test(t)) return null;            // операции с сессией (действия)
-  if(/^(доступн|какие инн|какие компании|список компаний)/.test(t)) return null;          // list_reports — кликабельная таблица данных
-  if(/по годам|динамик/.test(t)) return null;                                             // график строится из данных
-  if(/покажи матриц|^ко всем|все компании/.test(t)) return null;                          // навигация к матрице (таблица — из данных)
-  // ПРИМЕЧАНИЕ: сама матрица в панели рисуется из json-данных (renderMatrix).
-  // Если в проде ячейки матрицы потребуют NL-переформулировки — это отдельный вызов qwen на содержимое ячеек.
-  // Фильтры/выборки («только с негативными», «у кого предупреждения/пробелы») и «что проверить до сделки»
-  // теперь формулирует модель; состояние фильтра панели всё равно выставит agentAnswer (детерминированно).
-  // --- К локальной модели ---
-  if(inns.length===1&&DB[inns[0]]) return 'summary';                                       // добавили одну компанию → сводка
-  if(S.session.length) return 'model';                                                     // любой другой вопрос: модель сама решит qa/compare
-  return null;
+  return /^(убери|удали|исключи|очист|сброс|начать заново)/.test(t);
 }
 
-async function callAgentRaw(message,analyzeMap,primaryInn){
-  const r=await fetch(AGENT_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({message,analyze_results:analyzeMap,primary_inn:primaryInn,session_len:S.session.length})});
-  const j=await r.json();
-  if(!j.ok) throw new Error(j.error||'agent error');
-  return j;
+/* Контекст сессии для агента (ИНН, текущая, что уже разбирали, контекст сделки) */
+function sessionCtx(){
+  return {inns:[...S.session], selected:S.selected,
+    assessment:Object.fromEntries(S.session.map(i=>[i,!!DB[i]._briefed])),
+    deal:(S.deal.goal||S.deal.amount)?{goal:S.deal.goal,amount:S.deal.amount}:null};
 }
-const callAgent=(message,c)=>callAgentRaw(message,{[c.inn]:buildAnalyze(c)},c.inn);
 
 /* Ответ модели (qa/compare/chart/summary) → HTML. Устойчив к формату:
    берёт reply_text, а если он пуст — абзацы brief (модель иногда кладёт текст туда). */
@@ -1229,7 +1204,7 @@ function renderModelTurn(turn,c){
   else if(pn.kind==='compare') h+=`<div class="actions"><button class="chip go" data-pview="compare">Сравнение в панели →</button></div>`;
   else if(pn.kind==='chart') h+=`<div class="actions"><button class="chip go" data-pview="chart">Финансовые показатели →</button></div>`;
   else if(pn.kind==='card') h+=`<div class="actions"><button class="chip go" data-pview="card" data-inn="${esc(pn.inn||c.inn)}">Подробности в панели →</button></div>`;
-  S._turnSuggestions=turn.suggestions||null;
+  S._turnSuggestions=Array.isArray(turn.suggestions)?turn.suggestions:[];
   return h+`<div class="foot">Ответ локальной модели${turn._latency_s?` · ${turn._latency_s}s`:''}.</div>`;
 }
 
@@ -1239,27 +1214,33 @@ async function send(text){
   S.lastQ=text; addMsg('user',esc(text)); $('#chatInput').value=''; $('#launcherInput').value='';
   S._turnSuggestions=null;
   const sk=addMsg('agent',`<div class="skeleton"><i style="width:80%"></i><i style="width:95%"></i><i style="width:60%"></i></div>`);
-  const fallback=agentAnswer(text);         // мутирует состояние сессии + запасной HTML (по правилам)
-  const kind=USE_AGENT()?pickKind(text):null;
-  if(kind&&DB[S.selected]){
-    try{
-      const c=DB[S.selected];
-      // summary — только по одной компании; для остальных вопросов при 2+ даём модели всю сессию (для сравнения/выбора)
-      const map=(kind==='summary'||S.session.length<2)?{[c.inn]:buildAnalyze(c)}:Object.fromEntries(S.session.map(i=>[i,buildAnalyze(DB[i])]));
-      const {turn,validation}=await callAgentRaw(text,map,c.inn);
-      const note=(validation&&validation.issues&&validation.issues.length)?`<div class="sys" style="margin-top:6px">Валидатор: ${esc(validation.issues.join('; ')).slice(0,300)}</div>`:'';
-      // summary рисуем карточным макетом ТОЛЬКО если модель реально вернула summary с brief; иначе — как обычный ответ модели
-      if(kind==='summary' && turn.answer_kind==='summary' && turn.brief && turn.brief.length){
-        c._brief=turn.brief; S._turnSuggestions=turn.suggestions||null; finish(sk, summaryHtml(c)+note);
-      } else {
-        finish(sk, renderModelTurn(turn,c)+note);
-      }
-    }catch(e){
-      finish(sk, `<div class="sys">Локальный агент недоступен (${esc(String(e.message||e))}); ответ по правилам.</div>`+fallback);
-    }
+
+  // Детерминированные операции с данными/состоянием и режим «LLM выкл» — по правилам на клиенте
+  if(!USE_AGENT() || isClientOp(text)){
+    setTimeout(()=>finish(sk, agentAnswer(text)), 300);
     return;
   }
-  setTimeout(()=>finish(sk,fallback),300);
+
+  // Иначе сообщение уходит агенту — он сам решает, звать ли инструмент проверки (MCP)
+  try{
+    const r=await fetch(AGENT_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:text, session:sessionCtx()})});
+    const j=await r.json();
+    if(!j.ok) throw new Error(j.error||'agent error');
+    const turn=j.turn||{}, v=j.validation||{};
+    // применяем то, что агент реально нашёл через MCP: добавляем компании в сессию
+    (v.fetched||[]).forEach(inn=>{ if(DB[inn] && !S.session.includes(inn) && S.session.length<MAX) S.session.push(inn); });
+    if((v.fetched||[]).length){ S.selected=v.fetched[0]; setView('card',S.selected); }
+    S._turnSuggestions=Array.isArray(turn.suggestions)?turn.suggestions:[];
+    const c=DB[S.selected];
+    if(turn.answer_kind==='summary' && turn.brief && turn.brief.length && c){
+      c._brief=turn.brief; finish(sk, summaryHtml(c));
+    } else {
+      finish(sk, renderModelTurn(turn, c||{inn:S.selected}));
+    }
+  }catch(e){
+    finish(sk, `<div class="sys">Локальный агент недоступен (${esc(String(e.message||e))}). Проверьте, что MCP-сервер и модель запущены.</div>`);
+  }
 }
 function greet(){
   $('#msgs').innerHTML='';
