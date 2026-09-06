@@ -54,10 +54,15 @@
   .rail .arr{font-size:16px}
   .layout:not([data-panel="closed"]) .rail,.layout.nosession .rail{display:none}
   .panel-body{padding:16px;overflow:auto;flex:1;min-height:0}
-  .details-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start}
+  .details-head{padding:12px 16px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 10px;align-items:start}
   .details-head .ttl{flex:1;min-width:0}
   .details-head .ttl h2{font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .details-head .icons{display:flex;gap:2px;flex:none}
+  .details-head .icons{grid-column:2;grid-row:1;display:flex;gap:2px;flex:none}
+  .subscribe-btn{grid-column:1/-1;grid-row:2;width:max-content;height:30px;display:none;align-items:center;justify-content:center;gap:6px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-size:13px;font-weight:500;white-space:nowrap}
+  .subscribe-btn:hover{background:var(--bg-secondary)}
+  .subscribe-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .subscribe-btn.on{background:var(--positive-bg);color:var(--positive-text)}
+  .subscribe-btn.on:hover{filter:brightness(.97)}
   .ibtn{width:28px;height:28px;border:0;background:transparent;border-radius:6px;color:var(--text-secondary);font-size:15px;line-height:1}
   .ibtn:hover{background:var(--bg-secondary);color:var(--text-primary)}
 
@@ -77,6 +82,8 @@
   .cchip:hover{background:var(--bg-secondary)}
   .cchip.active{border-color:#0b1f35;box-shadow:inset 0 0 0 1px #0b1f35}
   .cchip .name{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cchip .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .dot.green{background:var(--positive)} .dot.orange{background:var(--attention)} .dot.red{background:var(--negative)} .dot.grey{background:var(--text-tertiary)}
   .cchip .warn{color:var(--negative-text);font-weight:700;font-size:12px}
   .cchip .x{border:0;background:none;color:var(--text-tertiary);font-size:15px;line-height:14px;padding:2px 5px;border-radius:50%}
   .cchip .x:hover{background:var(--bg-tertiary);color:var(--text-primary)}
@@ -200,22 +207,20 @@
   .crit .g.gap{background:var(--bg-secondary);border:1px dashed var(--text-tertiary)}
   .crit .g.positive{background:var(--positive-bg)}
 
-  /* Динамика по годам */
-  .ychart{margin-top:8px}
-  .ychart svg{width:100%;height:auto;display:block}
-  .ychart .lbl{font-size:11px;fill:var(--text-secondary)}
-  .ychart .ax{stroke:var(--border)}
-  .ychart .ln{fill:none;stroke-width:2;transition:opacity .15s}
-  .ychart .pt{stroke:#fff;stroke-width:1.5}
-  .ychart .end{font-size:11px;font-weight:500}
-  .ychart.dim .ln,.ychart.dim .pt,.ychart.dim .end{opacity:.18}
-  .ychart.dim .ln.on,.ychart.dim .pt.on,.ychart.dim .end.on{opacity:1}
-  .lchip{display:inline-flex;gap:6px;align-items:center;font-size:12px;padding:3px 8px;border-radius:12px;border:1px solid var(--border);cursor:pointer;background:var(--bg-primary)}
-  .lchip.off{opacity:.4;text-decoration:line-through}
-  .lchip i{width:10px;height:3px;border-radius:2px;display:inline-block}
+  /* Финансовые показатели — мини-графики */
   .smalls{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-top:8px}
   .sm-c{border:1px solid var(--border);border-radius:var(--r8);padding:8px 10px}
-  .sm-c .t{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:6px;align-items:center;justify-content:space-between}
+  .sm-c .t{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:6px;align-items:flex-start;justify-content:space-between}
+  .sm-c-n{min-width:0;overflow:hidden}
+  .sm-c-n .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sm-c-n .u{font-size:11px;font-weight:400;color:var(--text-tertiary);margin-top:1px}
+  .sm-c-axis{display:grid;margin-top:2px;overflow:hidden}
+  .sm-c-col{display:flex;flex-direction:column;font-size:11px;line-height:14px;color:var(--text-secondary);min-width:0}
+  .sm-c-col:first-child{align-items:flex-start}
+  .sm-c-col:last-child{align-items:flex-end}
+  .sm-c-col:first-child:last-child{align-items:flex-start}
+  .sm-c-col:not(:first-child):not(:last-child){align-items:center}
+  .sm-c-col .v{color:var(--text-tertiary);font-size:11px;font-weight:400}
   .sm-c svg{width:100%;height:70px;display:block;margin-top:4px}
 
   /* Чат */
@@ -328,7 +333,14 @@
 
   <!-- B. Панель «Подробности» — открывается по ссылке из ответа, содержимое следует за последним ответом -->
   <aside class="panel details" id="details">
-    <div class="details-head"><div class="ttl" id="dTitle"></div><div class="icons"><button class="ibtn" id="pwide" title="Развернуть">⤢</button><button class="ibtn" data-pclose="1" title="Свернуть панель">×</button></div></div>
+    <div class="details-head">
+      <div class="ttl" id="dTitle"></div>
+      <button class="subscribe-btn" id="subscribeBtn" type="button" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+        <span>Подписаться на обновления о компании</span>
+      </button>
+      <div class="icons"><button class="ibtn" id="pwide" title="Развернуть">⤢</button><button class="ibtn" data-pclose="1" title="Свернуть панель">×</button></div>
+    </div>
     <div class="panel-body" id="dBody"></div>
   </aside>
   <button class="rail" id="rail" title="Открыть подробности"><span class="arr">‹</span><span class="vt" id="railText">Подробности</span></button>
@@ -572,15 +584,13 @@ const SETS = {
 };
 const ROWS = [['Оценка банка','bank'],['Финансы','fin'],['Юридические события','legal'],['Реестры ФНС','reg'],['Полнота данных','gapsRow']];
 const METRICS = [['pr','Выручка','finReports[].common.proceeds'],['pf','Прибыль','finReports[].common.profit'],['cap','Капитал и резервы','finReports[].liabilities.capitals'],['stl','Краткосрочные обязательства','finReports[].liabilities.shortTermLiabilities.total'],['ca','Оборотные активы','finReports[].assets.currentAssets.total']];
-/* Категориальная палитра линий: без красного/зелёного/оранжевого, чтобы цвет линии не читался как оценка */
-const PALETTE = ['#0b1f35','#3b5bdb','#7048e8','#1098ad','#5c7cfa','#495057','#845ef7','#0c8599','#364fc7','#868e96'];
 
 /* ---------- Состояние ----------
    panel: closed | open | wide — состояние панели «Подробности»
    view:  {kind:'card'|'compare'|'chart', inn} — что панель показывает; меняется только вслед за ответом агента или кликом по ссылке из ответа
    ctx:   контекст последнего ответа, от него зависят три подсказки под ответом */
-const S = { session:[], selected:null, llmOff:false, epView:'active', deal:{goal:null,amount:null},
-  filter:'all', focus:[], focusMode:false, expanded:false, metric:'pr', hiddenLines:new Set(),
+const S = { session:[], selected:null, llmOff:false, epView:'active', deal:{goal:null,amount:null}, subscriptions:new Set(),
+  filter:'all', focus:[], focusMode:false, expanded:false, metric:'pr',
   panel:'closed', view:{kind:'card',inn:null}, ctx:'start' };
 
 /* ---------- Утилиты ---------- */
@@ -595,7 +605,9 @@ const ico = () => '';
 const fmt1 = v => v.toLocaleString('ru-RU',{minimumFractionDigits:1,maximumFractionDigits:1});
 const mln = v => v==null ? '<span class="tertiary">нет данных</span>' : (Math.abs(v)>=1000 ? fmt1(v/1000)+' млрд ₽' : Math.abs(v)<1 ? fmt1(v*1000)+' тыс. ₽' : fmt1(v)+' млн ₽');
 const mlnT = v => mln(v).replace(/<[^>]+>/g,'');
-const mlnShort = v => Math.abs(v)>=1000 ? fmt1(v/1000)+' млрд' : Math.abs(v)<1 ? Math.round(v*1000)+' тыс' : (Math.abs(v)>=100?Math.round(v):fmt1(v))+' млн';
+const mlnShort = v => Math.abs(v)>=1000 ? fmt1(v/1000)+' млрд' : Math.abs(v)<1 ? fmt1(v*1000)+' тыс' : fmt1(v)+' млн';
+const finScaleOf = vals => { const m=Math.max(0,...vals.map(v=>Math.abs(v))); return m>=1000?{k:1/1000,u:'млрд'}:m>0&&m<1?{k:1000,u:'тыс'}:{k:1,u:'млн'}; };
+const finVal = (v,sc) => fmt1(v*sc.k);
 const worst = items => items.reduce((w,[p])=>POL_ORDER[p]<POL_ORDER[w]?p:w,'positive');
 const cs = () => S.session.map(i=>DB[i]);
 const lc = s => s.charAt(0).toLowerCase()+s.slice(1);
@@ -655,7 +667,7 @@ function renderChips(){
   if(!S.session.length){ box.innerHTML=''; cnt.textContent=''; return; }
   box.innerHTML = `<span class="label">В сессии</span>` + S.session.map(inn=>{ const c=DB[inn]; return `
     <span class="cchip${inn===S.selected?' active':''}" data-inn="${inn}" title="${esc(c.name)} · ИНН ${inn} · ${RISK[c.risk][0]} · клик — сводка и сигналы">
-      <span class="name">${esc(c.short)}</span>${compareAlertText(c)?'<span class="warn" title="'+esc(compareAlertText(c))+'">!</span>':''}
+      <span class="dot ${RISK[c.risk][1]}"></span><span class="name">${esc(c.short)}</span>${compareAlertText(c)?'<span class="warn" title="'+esc(compareAlertText(c))+'">!</span>':''}
       <button class="x" title="Удалить из сессии" data-del="${inn}">×</button></span>`; }).join('')
     + (S.deal.goal||S.deal.amount ? `<span class="cchip deal" title="Контекст сделки; изменить — фразой в чате"><span class="name">Сделка: ${[S.deal.goal, S.deal.amount?mlnT(S.deal.amount):null].filter(Boolean).join(' · ')}</span><button class="x" data-deldeal="1" title="Сбросить контекст">×</button></span>` : '');
   cnt.innerHTML = `${S.session.length} из ${MAX}${S.session.length>1?' · <a href="#" data-clear="1" style="color:inherit">очистить</a>':''}`;
@@ -681,7 +693,16 @@ function renderPanel(){
   L.dataset.panel=S.panel;
   $('#pwide').textContent=S.panel==='wide'?'⤡':'⤢'; $('#pwide').title=S.panel==='wide'?'Обычная ширина':'Развернуть';
   const c=DB[S.view.inn];
-  const railKind={card:c?esc(c.short):'', compare:`Сравнение ${S.session.length}`, chart:'Финансовые показатели'}[S.view.kind];
+  const subscribeBtn=$('#subscribeBtn');
+  const isCard=S.view.kind==='card'&&c;
+  const subscribed=isCard&&S.subscriptions.has(c.inn);
+  subscribeBtn.style.display=isCard?'inline-flex':'none';
+  subscribeBtn.classList.toggle('on',subscribed);
+  subscribeBtn.setAttribute('aria-pressed',String(!!subscribed));
+  subscribeBtn.setAttribute('aria-label',subscribed?'Отписаться от обновлений по контрагенту':'Подписаться на обновления по контрагенту');
+  subscribeBtn.title=subscribed?'Отписаться от обновлений по контрагенту':'Получать уведомления об изменениях по контрагенту';
+  subscribeBtn.querySelector('span').textContent=subscribed?'Вы подписаны':'Подписаться на обновления о компании';
+  const railKind={card:c?esc(c.short):'', compare:'Сравнение', chart:'Финансовые показатели'}[S.view.kind];
   $('#railText').textContent='Подробности · '+railKind;
   if(S.panel==='closed') return;
   if(S.view.kind==='card'){
@@ -689,10 +710,10 @@ function renderPanel(){
     $('#dBody').innerHTML=renderCard(c);
   } else if(S.view.kind==='compare'){
     const fl=S.focusMode&&S.focus.length>=2?S.focus.map(i=>DB[i]):null;
-    $('#dTitle').innerHTML=fl?`<h2>Подробно: ${names(fl)}</h2><div class="small muted">Колонки — выбранные компании; «← Ко всем» возвращает матрицу</div>`:`<h2>Сравнение ${S.session.length} контрагентов</h2>`;
+    $('#dTitle').innerHTML=fl?`<h2>Подробно: ${names(fl)}</h2><div class="small muted">Колонки — выбранные компании; «← Ко всем» возвращает матрицу</div>`:`<h2>Сравнение</h2>`;
     $('#dBody').innerHTML=(fl?renderFocus()+renderDiffs(fl)+renderSteps(fl):renderMatrix()+renderDiffs()+renderSteps(byRisk(cs())))+`<div class="row" style="margin-top:16px"><button class="chip" data-pview="chart">Финансовые показатели →</button></div>`;
   } else {
-    $('#dTitle').innerHTML=`<h2>Финансовые показатели · ${S.session.length} компаний</h2><div class="small muted">Рубли, линейная ось; год без значения не рисуется</div>`;
+    $('#dTitle').innerHTML=`<h2>Финансовые показатели</h2>`;
     $('#dBody').innerHTML=renderYearChart()+`<div class="row" style="margin-top:16px"><button class="chip" data-pview="compare">← Сравнение</button></div>`;
   }
   document.title=(S.view.kind==='card'?c.name:S.view.kind==='compare'?'Сравнение':'Финансовые показатели')+' — Проверка контрагентов';
@@ -938,7 +959,7 @@ function renderMatrix(){
     <tr><th></th><th>Контрагент</th>${rs.map(([n])=>`<th>${n}</th>`).join('')}</tr>
     ${list.map(c=>`<tr class="${S.focus.includes(c.inn)?'sel':''}" data-row="${c.inn}">
       <td><input type="checkbox" data-pick="${c.inn}" ${S.focus.includes(c.inn)?'checked':''} ${!S.focus.includes(c.inn)&&S.focus.length>=4?'disabled title="В фокусе не больше 4"':''}></td>
-      <td><div class="cn" data-open="${c.inn}">${esc(c.short)}</div><div class="mono muted">${c.inn}</div><div style="margin-top:3px">${riskStatus(c)}</div></td>
+      <td><div class="cn" data-open="${c.inn}">${esc(c.short)}</div><div style="margin-top:3px">${riskStatus(c)}</div></td>
       ${rs.map(([,k])=>`<td>${cell(c,k)}</td>`).join('')}</tr>`).join('')}
     ${!list.length?`<tr><td colspan="${rs.length+2}" class="muted" style="text-align:center;padding:20px">По этому фильтру контрагентов нет</td></tr>`:''}
   </table></div>`;
@@ -981,63 +1002,34 @@ function seriesFor(list){
   list.forEach(c=>{
     const pts=c.fin.filter(f=>f[k]!=null&&!(k==='pr'&&f[k]===0)).map(f=>({y:f.y,v:f[k]}));
     if(!pts.length){ skipped.push([c, c.isIP?'ИП не публикует отчётность':c.fin.length?'показатель не указан':'нет отчётности']); return; }
-    ser.push({c,color:PALETTE[S.session.indexOf(c.inn)%PALETTE.length],pts:pts.map(p=>({y:p.y,raw:p.v,v:p.v}))});
+    ser.push({c,pts:pts.map(p=>({y:p.y,raw:p.v,v:p.v}))});
   });
   return {k,name,r,ser,skipped};
 }
-const yLabel = v => mlnShort(v);
 function renderYearChart(){
   const list=S.focusMode&&S.focus.length>=2?S.focus.map(i=>DB[i]):cs();
   const {name,r,ser,skipped}=seriesFor(list);
   const years=[...new Set(list.flatMap(c=>c.fin.map(f=>f.y)))].sort();
-  /* Единственная шкала — рубли; вид выбирается по числу компаний: до 4 — общий график, от 5 — мини-графики */
-  const view=ser.length>4?'small':'overlay';
   const ctl=`
   <div class="toolbar"><div class="seg">${METRICS.map(([mk,mn])=>`<button class="${S.metric===mk?'on':''}" data-metric="${mk}">${mn}</button>`).join('')}</div></div>
-  <div class="small muted" style="margin-bottom:6px">${name}, млн ₽ ${ref(r)} · ${view==='small'?'у каждой компании своя ось от нуля; сравнивайте форму линии и процент, не высоту':'одна ось для всех; цвет линии — только для различения компаний'}.</div>`;
+  <div class="small muted" style="margin-bottom:6px">${name} ${ref(r)} · у каждой компании своя ось от нуля; сравнивайте форму линии и процент, не высоту.</div>`;
   if(!ser.length) return ctl+`<div class="plate gap" style="margin-top:0">${ico('gap','sm')} Ни у одной компании нет данных по этому показателю.</div>`+skippedNote(skipped);
-  return ctl + (view==='overlay'?overlay(ser,years):smalls(ser,years)) + skippedNote(skipped);
+  return ctl + smalls(ser,years) + skippedNote(skipped);
 }
 function skippedNote(sk){ return sk.length?`<div class="small muted" style="margin-top:8px">${ico('gap','xs')} Не на графике: ${sk.map(([c,why])=>`${esc(c.short)} (${why})`).join('; ')}.</div>`:''; }
-function overlay(ser,years){
-  const W=820,H=280,L=84,R=120,T=16,B=32;
-  const vis=ser.filter(s=>!S.hiddenLines.has(s.c.inn));
-  const all=(vis.length?vis:ser).flatMap(s=>s.pts.map(p=>p.v));
-  let mn=Math.min(0,...all), mx=Math.max(0,...all); if(mn===mx){ mn-=1; mx+=1; }
-  const pad=(mx-mn)*0.08; if(mn<0) mn-=pad; if(mx>0) mx+=pad;
-  const x=y=>L+(years.indexOf(y))*((W-L-R)/Math.max(1,years.length-1));
-  const yy=v=>T+(H-T-B)*(1-(v-mn)/(mx-mn));
-  const ticks=[0,.25,.5,.75,1].map(t=>mn+(mx-mn)*t);
-  const zero=(mn<0&&mx>0)?`<line class="ax" x1="${L}" x2="${W-R}" y1="${yy(0)}" y2="${yy(0)}" stroke-dasharray="3 3"/>`:'';
-  const ends=vis.map(s=>({s,ly:yy(s.pts[s.pts.length-1].v)})).sort((a,b)=>a.ly-b.ly);
-  for(let i=1;i<ends.length;i++) if(ends[i].ly-ends[i-1].ly<13) ends[i].ly=ends[i-1].ly+13;
-  const labelY=Object.fromEntries(ends.map(e=>[e.s.c.inn,e.ly]));
-  const lines=ser.map(s=>{ if(S.hiddenLines.has(s.c.inn)) return '';
-    const d=s.pts.map((p,i)=>`${i?'L':'M'}${x(p.y)},${yy(p.v)}`).join(' ');
-    const last=s.pts[s.pts.length-1];
-    return `<g data-line="${s.c.inn}"><path class="ln" d="${d}" stroke="${s.color}"/>${s.pts.map(p=>`<circle class="pt" cx="${x(p.y)}" cy="${yy(p.v)}" r="3.5" fill="${s.color}"><title>${esc(s.c.short)} · ${p.y}: ${mlnT(p.raw)}</title></circle>`).join('')}<text class="end" x="${x(last.y)+8}" y="${labelY[s.c.inn]+4}" fill="${s.color}">${esc(s.c.short)}</text></g>`; }).join('');
-  const v=(vis.length?vis:ser).flatMap(s=>s.pts.map(p=>Math.abs(p.raw))).filter(Boolean);
-  const hint=v.length>1&&Math.max(...v)/Math.min(...v)>50?`<div class="small tertiary" style="margin-top:4px">Масштабы компаний различаются на порядки: линии малых компаний прижаты к оси. Скройте крупную компанию кликом по легенде.</div>`:'';
-  return `<div class="ychart" id="ychart"><svg viewBox="0 0 ${W} ${H}">
-    ${ticks.map(t=>`<line class="ax" x1="${L}" x2="${W-R}" y1="${yy(t)}" y2="${yy(t)}"/><text class="lbl" x="${L-8}" y="${yy(t)+4}" text-anchor="end">${yLabel(t)}</text>`).join('')}
-    ${zero}
-    ${years.map(y=>`<text class="lbl" x="${x(y)}" y="${H-10}" text-anchor="middle">${y}</text>`).join('')}
-    ${lines}
-  </svg></div>
-  <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">${ser.map(s=>`<span class="lchip${S.hiddenLines.has(s.c.inn)?' off':''}" data-toggle="${s.c.inn}" data-hover="${s.c.inn}"><i style="background:${s.color}"></i>${esc(s.c.short)}</span>`).join('')}<span class="small tertiary" style="margin-left:6px">клик скрывает линию, наведение подсвечивает</span></div>${hint}`;
-}
 function smalls(ser,years){
   const W=200,H=70,L=20,R=20,T=10,B=14;
   return `<div class="smalls">${ser.map(s=>{
     const v=s.pts.map(p=>p.v); let mn=Math.min(0,...v), mx=Math.max(0,...v);
     if(mn===mx){ mn-=1; mx+=1; } const pad=(mx-mn)*.1; mn-=pad; mx+=pad;
+    const sc=finScaleOf(v);
     const x=y=>L+(years.indexOf(y))*((W-L-R)/Math.max(1,years.length-1)), yy=v=>T+(H-T-B)*(1-(v-mn)/(mx-mn));
     const d=s.pts.map((p,i)=>`${i?'L':'M'}${x(p.y)},${yy(p.v)}`).join(' ');
     const first=s.pts[0], last=s.pts[s.pts.length-1];
     const pct=first.raw&&s.pts.length>1?Math.round((last.raw-first.raw)/Math.abs(first.raw)*100):null;
-    return `<div class="sm-c"><div class="t"><span title="${esc(s.c.name)}">${esc(s.c.short)}</span>${pct!=null?`<span class="status ${S.metric==='stl'?'grey':pct>5?'green':pct<-5?'red':'grey'}" title="${S.metric==='stl'?'рост обязательств не оценивается цветом':'изменение первый → последний год'}">${pct>0?'+':''}${pct} %</span>`:`<span class="status grey">1 год</span>`}</div>
-      <svg viewBox="0 0 ${W} ${H}"><path class="ln" d="${d}" stroke="#0b1f35" stroke-width="2" fill="none"/>${s.pts.map(p=>`<circle cx="${x(p.y)}" cy="${yy(p.v)}" r="3" fill="#0b1f35"><title>${p.y}: ${mlnT(p.raw)}</title></circle>`).join('')}${years.map(y=>`<text class="lbl" x="${x(y)}" y="${H-2}" text-anchor="middle">${y}</text>`).join('')}</svg>
-      <div class="small muted" style="display:flex;justify-content:space-between"><span>${mlnT(first.raw)}</span><span>${mlnT(last.raw)}</span></div></div>`; }).join('')}</div>`;
+    return `<div class="sm-c"><div class="t"><div class="sm-c-n"><div class="nm" title="${esc(s.c.name)}">${esc(s.c.short)}</div><div class="u">${sc.u}</div></div>${pct!=null?`<span class="status ${S.metric==='stl'?'grey':pct>5?'green':pct<-5?'red':'grey'}" title="${S.metric==='stl'?'рост обязательств не оценивается цветом':'изменение первый → последний год'}">${pct>0?'+':''}${pct} %</span>`:`<span class="status grey">1 год</span>`}</div>
+      <svg viewBox="0 0 ${W} ${H}"><path class="ln" d="${d}" stroke="#0b1f35" stroke-width="2" fill="none"/>${s.pts.map(p=>`<circle cx="${x(p.y)}" cy="${yy(p.v)}" r="3" fill="#0b1f35"><title>${p.y}: ${finVal(p.raw,sc)}</title></circle>`).join('')}</svg>
+      <div class="sm-c-axis" style="grid-template-columns:repeat(${years.length},1fr)">${years.map(y=>{ const pt=s.pts.find(p=>p.y===y); return `<div class="sm-c-col"><span>${y}</span>${pt?`<span class="v">${finVal(pt.raw,sc)}</span>`:''}</div>`; }).join('')}</div></div>`; }).join('')}</div>`;
 }
 /* Текстовая версия динамики для ответа в чате */
 function trendText(){
@@ -1091,11 +1083,11 @@ function agentAnswer(q){
     return `<p>Подробное сравнение: ${names(mentioned.slice(0,4))}. Различия по критериям:</p>${diffsList(mentioned.slice(0,4))}<div class="actions"><button class="chip go" data-pview="compare">Таблица колонками в панели →</button><button class="lnk" data-q="Покажи матрицу">ко всем ${S.session.length}</button></div>`;
   }
   if(/расскажи|покажи сводку|сводк|что по|карточк|подробнее о/.test(t)&&(mentioned.length===1||!many)){ const c=DB[S.selected]; setView('card',c.inn); S.ctx='company'; return summaryHtml(c); }
-  if(many&&/матриц|ко всем|всех|все компании/.test(t)){ S.focusMode=false; S.filter='all'; setView('compare'); S.ctx='compare'; return `<p>Матрица сигналов по всем ${S.session.length} — в панели. Строки идут по возрастанию риска, ключ порядка подписан под таблицей.</p><div class="actions"><button class="chip go" data-pview="compare">Открыть матрицу →</button></div>`; }
+  if(many&&/матриц|ко всем|всех|все компании/.test(t)){ S.focusMode=false; S.filter='all'; setView('compare'); S.ctx='compare'; return `<p>Матрица сигналов по всем ${S.session.length} — в панели.</p><div class="actions"><button class="chip go" data-pview="compare">Открыть матрицу →</button></div>`; }
   if(many&&/только с негатив|с негативн/.test(t)){ S.filter='neg'; S.focusMode=false; setView('compare'); S.ctx='compare'; const l=filtered(); return `<p>Негативные сигналы у ${l.length} из ${S.session.length}:</p><ul>${l.map(c=>`<li><b>${esc(c.short)}</b> — ${esc(rows().flatMap(([,k])=>cellItems(c,k)).filter(([p])=>p==='negative').map(([,x])=>lc(x)).join('; '))}</li>`).join('')}</ul><div class="actions"><button class="chip go" data-pview="compare">Матрица с фильтром в панели →</button><button class="lnk" data-q="Покажи матрицу">показать всех</button></div>`; }
   if(many&&/предупрежден|статус/.test(t)){ const l=compareAlertCompanies(cs()); S.filter='head'; setView('compare'); S.ctx='compare'; return l.length?`<p>Предупреждения у ${l.length} из ${S.session.length}:</p>${l.map(c=>`<div class="alert" style="font-size:13px;font-weight:500;padding:8px 10px">${ico('negative','xs')} <b>${esc(c.short)}:</b> ${esc(compareAlertText(c))} ${c.headline?ref('status.reasonName'):ref('baseInfo.riskLevel')}</div>`).join('')}<div class="actions"><button class="chip go" data-pview="compare">Матрица с фильтром в панели →</button></div>`:`<p>Предупреждений по статусу и критической оценке банка ни у кого из ${S.session.length} нет.</p>`; }
   if(many&&/пробел|не хватает|нет данных|недостаточно/.test(t)&&mentioned.length!==1&&!['company','fin','legal'].includes(S.ctx)){ const l=cs().filter(c=>c.gaps.length); S.filter='gap'; setView('compare'); S.ctx='compare'; return `<p>Пробелы в данных у ${l.length} из ${S.session.length}:</p>${l.map(c=>`<p><b>${esc(c.short)}</b></p>${c.gaps.map(gapFact).join('')}`).join('')}${gapsNote()}<div class="actions"><button class="chip go" data-pview="compare">Матрица с фильтром в панели →</button></div>`; }
-  if(many&&/по годам|динамик/.test(t)){ S.metric=/прибыл/.test(t)?'pf':/капитал/.test(t)?'cap':/обязательств/.test(t)?'stl':/актив/.test(t)?'ca':'pr'; S.hiddenLines.clear(); setView('chart'); S.ctx='chart'; return trendText(); }
+  if(many&&/по годам|динамик/.test(t)){ S.metric=/прибыл/.test(t)?'pf':/капитал/.test(t)?'cap':/обязательств/.test(t)?'stl':/актив/.test(t)?'ca':'pr'; setView('chart'); S.ctx='chart'; return trendText(); }
   if(many&&/лучше|надёжн|надежн|с кем работать|кого выбрать|самый|кому подходит|кого выбрать/.test(t)){ setView('compare'); S.ctx='compare'; return chatCompareHtml(); }
   if(many&&/различ|сравн|итог/.test(t)){ S.focusMode=false; setView('compare'); S.ctx='diffs'; return chatCompareHtml()+`<details class="fold"><summary>Различия по критериям</summary>${diffsList()}</details>`; }
   const c=DB[S.selected];
@@ -1206,21 +1198,20 @@ document.addEventListener('click',e=>{
   else if(d.pview){ openPanel(d.pview, d.inn); if(d.block) highlight(d.block); }
   else if(d.pclose){ S.panel='closed'; renderAll(); }
   else if(t.id==='pwide'||cl('#pwide')){ S.panel=S.panel==='wide'?'open':'wide'; renderAll(); }
+  else if(t.id==='subscribeBtn'||cl('#subscribeBtn')){ const inn=S.view.inn; if(S.subscriptions.has(inn)) S.subscriptions.delete(inn); else S.subscriptions.add(inn); renderPanel(); }
   else if(cl('#rail')){ S.panel='open'; renderAll(); }
   else if(d.pick!==undefined){ S.focus=t.checked?[...S.focus,d.pick]:S.focus.filter(i=>i!==d.pick); renderPanel(); }
   else if(d.focus){ S.focusMode=true; renderPanel(); }
   else if(d.unfocus){ S.focusMode=false; renderPanel(); }
   else if(d.filter){ S.filter=d.filter; renderPanel(); }
   else if(d.expand){ S.expanded=!S.expanded; renderPanel(); }
-  else if(d.metric){ S.metric=d.metric; S.hiddenLines.clear(); renderPanel(); }
-  else if(d.toggle){ S.hiddenLines.has(d.toggle)?S.hiddenLines.delete(d.toggle):S.hiddenLines.add(d.toggle); renderPanel(); }
+  else if(d.metric){ S.metric=d.metric; renderPanel(); }
   else if(cl('[data-open]')){ openPanel('card', cl('[data-open]').dataset.open); }
   else if(d.ep){ S.epView=d.ep; renderPanel(); }
   else if(d.q){ send(d.q); }
   else if(cl('tr.pick')){ send('проверь '+cl('tr.pick').dataset.add); }
   else if(d.state){ document.querySelectorAll('.devbar [data-state]').forEach(b=>b.classList.toggle('on',b===t)); S.session=[...SETS[d.state]]; S.selected=S.session[0]; S.focus=[]; S.focusMode=false; S.filter='all'; S.panel='closed'; S.view={kind:S.session.length>1?'compare':'card',inn:S.selected}; renderAll(); greet(); }
 });
-document.addEventListener('mouseover',e=>{ const h=e.target.closest('[data-hover]'); const ch=$('#ychart'); if(!ch) return; if(h){ ch.classList.add('dim'); ch.querySelectorAll('[data-line]').forEach(g=>g.querySelectorAll('.ln,.pt,.end').forEach(x=>x.classList.toggle('on',g.dataset.line===h.dataset.hover))); } else { ch.classList.remove('dim'); } });
 $('#llmToggle').onclick=()=>{ S.llmOff=!S.llmOff; $('#llmToggle').textContent='LLM недоступна: '+(S.llmOff?'вкл':'выкл'); $('#llmToggle').classList.toggle('on',S.llmOff); renderAll(); greet(); };
 $('#sendBtn').onclick=()=>send($('#chatInput').value);
 $('#chatInput').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send($('#chatInput').value);} });
