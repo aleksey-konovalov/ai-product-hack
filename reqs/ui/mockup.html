@@ -20,12 +20,16 @@
     --positive:#0cc44d; --positive-text:#0d9336; --positive-bg:#e6f8ec;
     --info-bg:#f3f4f5;
     --accent:#ef3124;
+    --red:#ef3124; --red-dark:#c9251a;
+    --ink:#171717; --muted:#676767; --line:#deded9; --paper:#f6f6f3;
+    --blue:#2f6fed; --green-dot:#159b68;
+    --shadow:0 20px 55px rgba(17,17,17,.09);
     --r12:12px; --r8:8px;
-    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font: Inter, "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;font-family:var(--font);color:var(--text-primary);background:var(--bg-secondary);font-size:15px;line-height:20px}
+  html,body{margin:0;height:100%;font-family:var(--font);color:var(--text-primary);background:var(--bg-secondary);font-size:15px;line-height:20px;-webkit-font-smoothing:antialiased}
   button{font:inherit;cursor:pointer}
   h1,h2,h3{margin:0;font-weight:600}
   h1{font-size:20px;line-height:24px}
@@ -36,8 +40,11 @@
   .row{display:flex;gap:8px;align-items:center}
 
   header{height:56px;background:var(--bg-primary);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px}
-  header .logo{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
+  header .logo, header .brand-mark{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
+  header .brand-mark{position:relative;border-radius:7px;transform:skew(-8deg);box-shadow:0 8px 18px rgba(239,49,36,.22)}
+  header .brand-mark::before{content:"";position:absolute;width:5px;height:17px;left:11px;top:5px;border-radius:5px;background:#fff}
   header .spacer{flex:1}
+  header .header-meta{display:none;color:var(--muted);font-size:12px;font-weight:650;letter-spacing:.02em}
 
   /* Сетка: чат по центру, панель «Подробности» справа, по умолчанию свёрнута до рейки */
   .layout{display:flex;gap:16px;padding:16px 24px 24px;height:calc(100% - 56px);min-width:1200px;justify-content:center}
@@ -259,19 +266,39 @@
   .compose textarea{flex:1;resize:none;border:1px solid var(--border);border-radius:var(--r8);padding:12px;font:inherit;min-height:48px;max-height:104px}
   .compose textarea::placeholder{color:var(--text-tertiary);opacity:1}
   .compose button{width:48px;height:48px;border-radius:var(--r8);border:0;background:#0b1f35;color:#fff;font-size:18px}
-  /* Пустая сессия: task-first launcher вместо приветственного сообщения */
-  .launcher{display:none;flex-direction:column;align-items:center;gap:20px;max-width:640px;width:100%;margin:0 auto;padding:0 20px 12vh}
-  .launcher-title{font-size:22px;line-height:28px;font-weight:600;color:var(--text-primary);text-align:center;margin:0;max-width:560px}
-  .launcher-intro{font-size:15px;line-height:22px;color:var(--text-secondary);text-align:center;margin:0;max-width:560px}
-  .launcher-compose{display:flex;gap:8px;width:100%;align-items:stretch}
-  .launcher-compose input{flex:1;border:1px solid var(--border);border-radius:var(--r8);padding:0 16px;font:inherit;font-size:15px;height:52px;min-width:0;background:var(--bg-primary)}
-  .launcher-compose input::placeholder{color:var(--text-tertiary)}
-  .launcher-compose input:focus{outline:2px solid rgba(11,31,53,.18);outline-offset:0;border-color:#0b1f35}
-  .launcher-compose .launcher-btn{height:52px;padding:0 20px;border-radius:var(--r8);border:0;background:#0b1f35;color:#fff;font-weight:500;font-size:15px;white-space:nowrap;flex:none}
-  .launcher-compose .launcher-btn:hover{background:#152a42}
-  .launcher-examples{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-  .launcher-examples .chip{background:var(--bg-secondary);border-color:transparent;color:var(--text-secondary);font-size:13px;padding:6px 12px}
-  .launcher-examples .chip:hover{background:var(--bg-tertiary);color:var(--text-primary)}
+  /* Пустая сессия: task-first launcher в стиле питча */
+  body.empty-home{color:var(--ink);background:
+    radial-gradient(circle at 83% 12%, rgba(239,49,36,.08), transparent 24%),
+    radial-gradient(circle at 8% 88%, rgba(47,111,237,.055), transparent 25%),
+    var(--paper)}
+  body.empty-home::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.15;z-index:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.11'/%3E%3C/svg%3E");mix-blend-mode:multiply}
+  body.empty-home header, body.empty-home .layout{position:relative;z-index:1}
+  body.empty-home header{height:72px;background:transparent;border-bottom:0;padding:18px clamp(22px,4.5vw,56px)}
+  body.empty-home header h1{font-size:15px;line-height:20px;font-weight:750;letter-spacing:-.02em;color:var(--ink)}
+  body.empty-home .header-meta{display:block}
+  body.empty-home .devbar button.on{background:var(--red);color:#fff}
+  .layout.nosession{min-width:0;padding:0 0 24px;justify-content:center}
+  body.empty-home .layout{height:calc(100% - 72px)}
+  .layout.nosession .chat{max-width:none;flex:1 1 auto;background:transparent;border:0;box-shadow:none}
+  .launcher{display:none;flex-direction:column;align-items:center;gap:0;max-width:760px;width:100%;margin:0 auto;padding:0 24px 8vh;text-align:center}
+  .launcher-eyebrow{display:inline-flex;align-items:center;margin-bottom:18px;padding:8px 13px;border:1px solid rgba(239,49,36,.18);border-radius:999px;color:var(--red-dark);background:rgba(239,49,36,.06);font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.11em}
+  .launcher-title{max-width:18ch;margin:0 0 16px;font-size:clamp(38px,5.4vw,68px);font-weight:850;line-height:.94;letter-spacing:-.05em;color:var(--ink);text-align:center}
+  .launcher-title .mark{position:relative;display:inline-block}
+  .launcher-title .mark::after{content:"";position:absolute;left:2px;right:-3px;bottom:4px;z-index:-1;height:.12em;border-radius:999px;background:var(--red);transform:rotate(-1.2deg)}
+  .launcher-intro{max-width:54ch;margin:0 0 28px;color:#4f4f4c;font-size:clamp(16px,1.45vw,20px);line-height:1.5;text-align:center;font-weight:400}
+  .launcher-compose{display:flex;gap:8px;width:100%;align-items:stretch;padding:10px;border:1px solid var(--line);border-radius:28px;background:rgba(255,255,255,.9);box-shadow:var(--shadow)}
+  .launcher-compose input{flex:1;border:0;border-radius:20px;padding:0 20px;font:inherit;font-size:15px;height:58px;min-width:0;background:transparent;color:var(--ink);outline:none}
+  .launcher-compose input::placeholder{color:#9a9a94}
+  .launcher-compose .launcher-btn{height:58px;padding:0 22px;border-radius:18px;border:0;background:var(--red);color:#fff;font-weight:700;font-size:15px;white-space:nowrap;flex:none;box-shadow:0 12px 28px rgba(239,49,36,.24);transition:transform .18s ease,background .18s ease}
+  .launcher-compose .launcher-btn:hover{background:var(--red-dark);transform:translateY(-1px)}
+  .launcher-examples{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+  .launcher-examples .chip{background:#f0f0ec;border-color:transparent;color:#4e4e4a;font-size:13px;font-weight:650;padding:9px 13px}
+  .launcher-examples .chip:hover{background:#fff;color:var(--ink);border-color:var(--line)}
+  .launcher-caps{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 22px;margin-top:28px;color:var(--muted);font-size:13px;font-weight:650}
+  .launcher-caps span{display:inline-flex;align-items:center;gap:8px}
+  .cap-dot{width:7px;height:7px;border-radius:50%;background:var(--red)}
+  .cap-dot.blue{background:var(--blue)}
+  .cap-dot.green{background:var(--green-dot)}
   .chat.empty-session .chat-head{display:none}
   .chat.empty-session .chat-flow{justify-content:center;flex:1}
   .chat.empty-session .launcher{display:flex}
@@ -286,33 +313,35 @@
   .hidden{display:none !important}
 </style>
 </head>
-<body>
+<body class="empty-home">
 <header>
-  <div class="logo">А</div>
+  <div class="brand-mark" aria-hidden="true"></div>
   <h1>Проверка контрагентов</h1>
   <div class="spacer"></div>
+  <div class="header-meta">ИИ-помощник · Альфа-Банк</div>
   <div class="devbar">
     <span>Макет · состояние:</span>
-    <button data-state="empty">Пустая сессия</button>
+    <button data-state="empty" class="on">Пустая сессия</button>
     <button data-state="one">1</button>
     <button data-state="three">3</button>
-    <button data-state="ten" class="on">10</button>
+    <button data-state="ten">10</button>
     <button id="llmToggle">LLM недоступна: выкл</button>
   </div>
 </header>
 
-<div class="layout" id="layout" data-panel="closed">
+<div class="layout nosession" id="layout" data-panel="closed">
 
   <!-- A. Чат — основной инструмент; сессия в шапке чата -->
-  <section class="panel chat" id="chat">
+  <section class="panel chat empty-session" id="chat">
     <div class="chat-head">
       <div class="top"><h2>Чат с агентом</h2><span class="counter" id="counter"></span></div>
       <div class="chips" id="chips"></div>
     </div>
     <div class="chat-flow">
       <div class="launcher" id="launcher">
-        <h2 class="launcher-title">Здравствуйте, вы на странице интеллектуального помощника для проверки контрагентов</h2>
-        <p class="launcher-intro">Пожалуйста, опишите задачу своими словами. Можно сразу направить в чат ИНН для проверки, контекст сделки или попросить сравнить контрагентов.</p>
+        <div class="launcher-eyebrow">Интеллектуальный помощник</div>
+        <h2 class="launcher-title">Здравствуйте. Проверим <span class="mark">контрагента</span></h2>
+        <p class="launcher-intro">Опишите задачу своими словами. Можно сразу направить ИНН, контекст сделки или попросить сравнить несколько компаний.</p>
         <div class="launcher-compose">
           <input type="text" id="launcherInput" autocomplete="off" placeholder="Например: планируется контракт на 100 млн, поставка, сравни Ромашка и Одуванчик">
           <button type="button" class="launcher-btn" id="launcherBtn">Проверить</button>
@@ -321,6 +350,11 @@
           <button type="button" class="chip" data-q="проверь 9721159668">Проверить 9721159668</button>
           <button type="button" class="chip" data-q="Доступные ИНН">Показать доступные ИНН</button>
           <button type="button" class="chip" data-q="проверь 9721159668 и 1660266560">Сравнить 9721159668 и 1660266560</button>
+        </div>
+        <div class="launcher-caps">
+          <span><i class="cap-dot"></i>5 направлений оценки</span>
+          <span><i class="cap-dot blue"></i>до 10 компаний в сессии</span>
+          <span><i class="cap-dot green"></i>вывод можно проверить</span>
         </div>
       </div>
       <div class="msgs" id="msgs"></div>
@@ -1160,6 +1194,7 @@ function finish(sk,a){
 function send(text){
   if(!text.trim()) return;
   $('#chat').classList.remove('empty-session');
+  document.body.classList.remove('empty-home');
   S.lastQ=text; addMsg('user',esc(text)); $('#chatInput').value=''; $('#launcherInput').value='';
   const isCmd=/\d{10,12}/.test(text)||/^(убери|удали|очист|доступн|расскажи|покажи|сравни|матриц)/i.test(text.trim())||/по годам|различ/i.test(text);
   if(S.llmOff&&!isCmd){ addMsg('agent',`<div class="sys">Языковая модель недоступна. Сводки и сравнение формируются по правилам: напишите ИНН, «расскажи о …», «в чём различия», «покажи матрицу». Команды сессии («убери», «очисти») работают.</div>`); renderSuggest(); return; }
@@ -1169,6 +1204,7 @@ function send(text){
 function greet(){
   $('#msgs').innerHTML='';
   $('#chat').classList.toggle('empty-session',!S.session.length);
+  document.body.classList.toggle('empty-home',!S.session.length);
   if(!S.session.length){ S.ctx='start'; $('#launcherInput').value=''; return; }
   addMsg('user','проверь '+S.session.join(', '));
   if(S.session.length===1){ S.ctx='company'; addMsg('agent',summaryHtml(DB[S.session[0]])); renderSuggest(); return; }
@@ -1220,7 +1256,7 @@ $('#launcherInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preve
 
 /* Начальное состояние из hash: #empty | #one | #three | #ten · #panel | #wide (панель открыта) · #card | #compare | #chart (что в панели) · #t2 | #t3 · #llmoff · #deal · #focus · #neg (через запятую) */
 const H=(location.hash||'').slice(1).split(',');
-const setName=['empty','one','three','ten'].find(s=>H.includes(s))||'ten';
+const setName=['empty','one','three','ten'].find(s=>H.includes(s))||'empty';
 S.session=[...SETS[setName]];
 S.selected=H.includes('t3')?'9714079997':H.includes('t2')?'1660266560':S.session[0];
 S.view={kind:H.includes('card')?'card':H.includes('chart')?'chart':H.includes('compare')?'compare':(S.session.length>1?'compare':'card'),inn:S.selected};
