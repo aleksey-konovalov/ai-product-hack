@@ -1,0 +1,25 @@
+# --- VCS / IDE ---
+.git
+.gitignore
+.DS_Store
+**/.DS_Store
+
+# --- Python ---
+**/__pycache__/
+**/*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# --- Локальные окружения и секреты (в образ не кладём) ---
+**/.env
+
+# --- Данные монтируются volume'ом, в контекст сборки не нужны ---
+data/
+
+# --- Логи ---
+**/logs/
+
+# --- Прочее ---
+reqs/
+services/vllm/

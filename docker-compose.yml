@@ -1,19 +1,47 @@
 services:
+  # MCP-сервер верификации: источник данных о контрагентах по ИНН
   verification_mcp_server:
-    build: 
+    build:
       context: .
       dockerfile: ./services/verification_mcp_server/Dockerfile
     container_name: verification_mcp_server
+    expose:
+      - "3010"                 # доступен другим контейнерам по имени сервиса
     ports:
-      - "3010:3010"
+      - "3010:3010"            # опубликован наружу (можно убрать, если не нужен снаружи)
     volumes:
       # Монтируем папку data внутрь контейнера для доступа mcp-сервера к данным.
-      - ./data:/opt/data
+      - ./data:/opt/data:ro
     environment:
       - FASTMCP_HOST=0.0.0.0   # обязательно 0.0.0.0 для доступа извне контейнера
       - FASTMCP_PORT=3010
+      - COUNTERAGENTS_DB_PATH=/opt/data/contractors_audit.snapshot.json
+      - COUNTERAGENTS_FULL_PAYLOAD=1
+      # Разрешаем обращение по имени сервиса из docker-сети (иначе FastMCP отдаёт HTTP 421
+      # из-за защиты от DNS-rebinding). Порт 3010 наружу в проде не публикуется.
+      - MCP_ALLOW_ALL_HOSTS=1
     restart: unless-stopped
 
+  # Бэкенд-агент: чат + structured output, данные тянет через MCP-сервер
+  root_agent:
+    build:
+      context: .
+      dockerfile: ./services/root_agent/Dockerfile
+    container_name: root_agent
+    ports:
+      - "8130:8130"
+    env_file:
+      # ACTIVE_LLM_PROFILE и DSLAB_API_KEY (файл в git не коммитится — секреты)
+      - ./services/root_agent/.env
+    environment:
+      # Внутри docker-сети MCP доступен по имени сервиса, а не по localhost
+      - MCP_VERIFICATION_URL=http://verification_mcp_server:3010/mcp
+      - PORT=8130
+    depends_on:
+      - verification_mcp_server
+    restart: unless-stopped
+
+  # Локальный inference (по требованию, только с GPU): docker compose --profile vllm up
   vllm:
     profiles: ["vllm"]
     build:

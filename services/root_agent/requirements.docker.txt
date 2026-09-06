@@ -1,0 +1,9 @@
+# Продовые зависимости контейнера root_agent (web_agent.py).
+# web_agent.py — сервер на stdlib (http.server/urllib); из стороннего нужен только
+# MCP-клиент, который лениво импортируется в _mcp_call. Полный requirements.txt
+# (gradio/langgraph/langchain-openai) нужен лишь для локального UI main.py и в образ не тянется.
+#
+# ВАЖНО: mcp пиним на 1.29.1 — langchain-mcp-adapters 0.3.1 несовместим с mcp 2.x
+# (в 2.x убран mcp.shared.context.RequestContext → ImportError при импорте клиента).
+langchain-mcp-adapters==0.3.1
+mcp==1.29.1
