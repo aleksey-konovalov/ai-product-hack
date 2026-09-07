@@ -1230,14 +1230,40 @@ async function send(text){
     if(!j.ok) throw new Error(j.error||'agent error');
     const turn=j.turn||{}, v=j.validation||{};
     // применяем то, что агент реально нашёл через MCP: добавляем компании в сессию
-    (v.fetched||[]).forEach(inn=>{ if(DB[inn] && !S.session.includes(inn) && S.session.length<MAX) S.session.push(inn); });
-    if((v.fetched||[]).length){ S.selected=v.fetched[0]; setView('card',S.selected); }
+    const fetchedAll=(v.fetched||[]).map(String);
+    const fetched=fetchedAll.filter(inn=>DB[inn]);   // карточки рисуем только по известным клиенту компаниям
+    fetched.forEach(inn=>{ if(!S.session.includes(inn) && S.session.length<MAX) S.session.push(inn); });
+    if(fetchedAll.length){ S.selected=(fetched[0]||fetchedAll[0]); setView(fetched.length>1?'compare':'card',S.selected); }
     S._turnSuggestions=Array.isArray(turn.suggestions)?turn.suggestions:[];
+    // LLM-брифы по компаниям (если бэкенд прислал turn.cards) — иначе карточка возьмёт правило-based
+    const cardBriefs={};
+    (Array.isArray(turn.cards)?turn.cards:[]).forEach(cd=>{ if(cd&&cd.inn&&Array.isArray(cd.brief)&&cd.brief.length) cardBriefs[String(cd.inn)]=cd.brief; });
     const c=DB[S.selected];
-    if(turn.answer_kind==='summary' && turn.brief && turn.brief.length && c){
-      c._brief=turn.brief; finish(sk, summaryHtml(c));
+    const knownFetched=fetched.filter(inn=>DB[inn]);
+    if(turn.answer_kind==='compare' && knownFetched.length>=2){
+      // СРАВНЕНИЕ → матрица, а не карточки. Компактный текст + алерты + открываем матрицу в панели.
+      setView('compare');
+      const alerts=compareAlertCompanies(cs());
+      const html=(turn.reply_text&&turn.reply_text.trim()?`<p>${esc(turn.reply_text.trim())}</p>`:'')
+        + alerts.map(a=>`<div class="alert">${ico('negative','xs')} <b>${esc(a.short)}:</b> ${esc(compareAlertText(a))}</div>`).join('')
+        + `<div class="actions"><button class="chip go" data-pview="compare">Сравнение в панели →</button><button class="lnk" data-pview="chart">финансовые показатели</button></div>`;
+      finish(sk, html);
+      openPanel('compare');   // сразу показываем матрицу сравнения
     } else {
-      finish(sk, renderModelTurn(turn, c||{inn:S.selected}));
+      // Карточки — ТОЛЬКО при первичном summary и ТОЛЬКО для компаний, ещё не показанных карточкой (_briefed).
+      const newOnes=fetched.filter(inn=>DB[inn] && !DB[inn]._briefed);
+      if(turn.answer_kind==='summary' && newOnes.length){
+        // общий бриф в одну карточку НЕ пихаем: turn.brief берём только для одиночной проверки (1 компания),
+        // для мульти каждая карточка — из turn.cards или правило-based по своим данным
+        if(fetched.length===1 && turn.brief && turn.brief.length) DB[newOnes[0]]._brief=turn.brief;
+        newOnes.forEach(inn=>{ if(cardBriefs[inn]) DB[inn]._brief=cardBriefs[inn]; });
+        const sep='<div style="height:1px;background:#e9edf1;margin:18px 0"></div>';
+        // data-company на обёртке — чтобы клик по тревожной плашке открывал панель ИМЕННО этой компании
+        const cards=newOnes.map(inn=>`<div class="companycard" data-company="${inn}">${summaryHtml(DB[inn])}</div>`).join(sep);
+        finish(sk, cards + (newOnes.length>1?`<div class="actions"><button class="chip go" data-pview="compare">Сравнение в панели →</button></div>`:''));
+      } else {
+        finish(sk, renderModelTurn(turn, c||{inn:S.selected}));
+      }
     }
   }catch(e){
     finish(sk, `<div class="sys">Локальный агент недоступен (${esc(String(e.message||e))}). Проверьте, что MCP-сервер и модель запущены.</div>`);
@@ -1263,7 +1289,7 @@ function openRef(r,inn){ openPanel('card',inn||S.selected); highlight(blockFor(r
 
 /* ---------- События ---------- */
 function renderAll(){ renderChips(); renderPanel(); }
-const innOf = el => { const m=el.closest('.msg'); const h=m&&m.querySelector('[data-inn]'); return h?h.dataset.inn:null; };
+const innOf = el => { const cc=el.closest('[data-company]'); if(cc&&cc.dataset.company) return cc.dataset.company; const m=el.closest('.msg'); const h=m&&m.querySelector('[data-inn]'); return h?h.dataset.inn:null; };
 document.addEventListener('click',e=>{
   const t=e.target, d=t.dataset, cl=s=>t.closest(s);
   if(d.del){ e.stopPropagation(); send('убери '+DB[d.del].short); }
