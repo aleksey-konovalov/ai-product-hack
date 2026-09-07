@@ -9,13 +9,14 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
 from langchain.agents import create_agent
+from langchain.agents.structured_output import ToolStrategy
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain_core.messages import HumanMessage
 
 from .llm_client import llm
-from .prompts import SYSTEM_PROMPT
+from .prompts import SYSTEM_PROMPT, RESPONSE_SCHEMA
 from .middleware import TrimMessagesMiddleware
 
 # from shared.utils.logger import app_logger, get_logger
@@ -45,6 +46,10 @@ class RootAgent:
                 llm,
                 tools=mcp_tools,
                 system_prompt=SYSTEM_PROMPT,
+                # Строгий structured output под контракт фронта (brief/panel/suggestions).
+                # ToolStrategy совместим с dslab (ProviderStrategy этот json_schema не принимает),
+                # и структурный ответ приходит отдельным tool-call → не смешивается с reasoning/прозой.
+                response_format=ToolStrategy(schema=RESPONSE_SCHEMA),
                 # middleware=[TrimMessagesMiddleware(max_messages=20, max_tool_messages=2)],
                 checkpointer=InMemorySaver(),
             )

@@ -3,12 +3,51 @@
 Локальный веб-агент: общается с фронтом, делегирует логику root_agent.
 """
 import json
+import re
 import os
 import asyncio
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from langchain_core.messages import HumanMessage
 
 from .core.agent import root_agent
+
+
+def _extract_json(s: str) -> str:
+    """Вытаскивает первый JSON-объект из текста (срезает markdown-фенс и прозу вокруг)."""
+    s = (s or "").strip()
+    if "```" in s:
+        m = re.search(r"```(?:json)?\s*(\{.*\})\s*```", s, re.DOTALL)
+        if m:
+            return m.group(1)
+    i, j = s.find("{"), s.rfind("}")
+    return s[i:j + 1] if i >= 0 and j > i else s
+
+
+def _extracted_inns(result):
+    """ИНН, реально полученные агентом через MCP (из tool-сообщений). Нужны фронту:
+    по ним он добавляет компании в сессию и открывает подробный отчёт (validation.fetched)."""
+    fetched, missing = [], []
+    msgs = result.get("messages", []) if isinstance(result, dict) else []
+    for m in msgs:
+        if getattr(m, "type", "") != "tool":
+            continue
+        content = getattr(m, "content", None)
+        if not isinstance(content, str):
+            content = "".join(x.get("text", "") for x in content if isinstance(x, dict)) if isinstance(content, list) else ""
+        try:
+            data = json.loads(content)
+        except (ValueError, TypeError):
+            continue
+        for rec in (data.get("found") or []):
+            rep = rec.get("report") if isinstance(rec, dict) and "report" in rec else rec
+            inn = str(((rep or {}).get("baseInfo") or {}).get("inn") or "")
+            if inn and inn not in fetched:
+                fetched.append(inn)
+        for mi in (data.get("missing") or []):
+            if str(mi) not in missing:
+                missing.append(str(mi))
+    return fetched, missing
+
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.getenv("PORT", "8130"))
@@ -54,37 +93,45 @@ def agent_turn(message: str, session: dict):
     """Синхронная обёртка для HTTP-хендлера."""
     log.info("ЗАПРОС: message=%r | сессия: %s", message, _session_ctx(session))
     
-    # Генерируем thread_id на основе ИНН или другой информации из сессии
-    thread_id = str(session.get("selected") or session.get("user_id") or "anonymous")
+    # thread_id = идентификатор сессии с фронта (sid). Новая/очищенная сессия → новый sid →
+    # свежая память агента. Иначе пустые сессии делили общий тред "anonymous" и агент
+    # «вспоминал» чужой прошлый разбор вместо свежего анализа.
+    thread_id = str(session.get("sid") or session.get("selected") or "anonymous")
     
     result = asyncio.run(_agent_invoke(message, session, thread_id))
         
-    # Извлекаем финальный ответ агента
-    if isinstance(result, dict):
-        msgs = result.get("messages", [])
-        content = ""
-        for m in reversed(msgs):
-            if hasattr(m, "content") and isinstance(m.content, str) and m.content.strip():
-                # Ищем последний ответ ассистента (не tool-результат)
-                if getattr(m, "type", "") == "ai" or getattr(m, "role", "") == "assistant":
-                    content = m.content
-                    break
-        if not content and msgs:
-            content = str(msgs[-1].content if hasattr(msgs[-1], "content") else msgs[-1])
-    elif hasattr(result, "content"):
-        content = str(result.content)
-    else:
-        content = str(result)
-    
-    # Пробуем распарсить как JSON (если агент настроен на structured output)
+    # Основной путь: строгий structured output от агента (response_format=ToolStrategy).
     turn = None
-    try:
-        obj = json.loads(content)
-        if isinstance(obj, dict) and ("reply_text" in obj or "brief" in obj or "answer_kind" in obj):
-            turn = obj
-    except (json.JSONDecodeError, TypeError):
-        pass
-    
+    content = ""
+    sr = result.get("structured_response") if isinstance(result, dict) else None
+    if isinstance(sr, dict):
+        turn = sr
+    elif sr is not None and hasattr(sr, "model_dump"):
+        turn = sr.model_dump()
+
+    # Фолбэк: structured_response нет — берём текст последнего ответа ассистента
+    # и пытаемся извлечь JSON (модель могла обернуть его в прозу/markdown-фенс).
+    if turn is None:
+        if isinstance(result, dict):
+            msgs = result.get("messages", [])
+            for m in reversed(msgs):
+                if hasattr(m, "content") and isinstance(m.content, str) and m.content.strip():
+                    if getattr(m, "type", "") == "ai" or getattr(m, "role", "") == "assistant":
+                        content = m.content
+                        break
+            if not content and msgs:
+                content = str(msgs[-1].content if hasattr(msgs[-1], "content") else msgs[-1])
+        elif hasattr(result, "content"):
+            content = str(result.content)
+        else:
+            content = str(result)
+        try:
+            obj = json.loads(_extract_json(content))
+            if isinstance(obj, dict) and ("reply_text" in obj or "brief" in obj or "answer_kind" in obj):
+                turn = obj
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     if turn is None:
         # Фолбэк: агент вернул текст — делаем из него "qa" turn
         turn = {
@@ -101,7 +148,19 @@ def agent_turn(message: str, session: dict):
             "suggestions": [],
             "_source": "agent",
         }
-    
+
+    # ИНН, полученные через MCP — фронт по ним добавляет компании в сессию и открывает отчёт.
+    fetched, missing = _extracted_inns(result)
+    # Подстрахуем primary_inn/panel.inn, если модель их не проставила, но данные получены.
+    if fetched:
+        if not turn.get("primary_inn"):
+            turn["primary_inn"] = fetched[0]
+        panel = turn.get("panel") or {}
+        if panel.get("kind") in ("card", "chart") and not panel.get("inn"):
+            panel["inn"] = fetched[0]
+            turn["panel"] = panel
+    turn["_fetched"] = fetched
+    turn["_missing"] = missing
     return turn, {}, "agent"
 
 
@@ -159,7 +218,9 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             return self._send(200, {"ok": False, "error": f"agent error: {e}"})
         
-        return self._send(200, {"ok": True, "turn": turn, "validation": {"data_source": source, "issues": []}})
+        validation = {"data_source": source, "issues": [],
+                      "fetched": turn.pop("_fetched", []), "missing": turn.pop("_missing", [])}
+        return self._send(200, {"ok": True, "turn": turn, "validation": validation})
 
 
 if __name__ == "__main__":

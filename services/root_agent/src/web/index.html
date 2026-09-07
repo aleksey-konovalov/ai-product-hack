@@ -578,7 +578,8 @@ const PALETTE = ['#0b1f35','#3b5bdb','#7048e8','#1098ad','#5c7cfa','#495057','#8
    panel: closed | open | wide — состояние панели «Подробности»
    view:  {kind:'card'|'compare'|'chart', inn} — что панель показывает; меняется только вслед за ответом агента или кликом по ссылке из ответа
    ctx:   контекст последнего ответа, от него зависят три подсказки под ответом */
-const S = { session:[], selected:null, llmOff:false, epView:'active', deal:{goal:null,amount:null},
+function newSid(){ return (self.crypto&&crypto.randomUUID)?crypto.randomUUID():'s'+Date.now()+Math.random().toString(36).slice(2); }
+const S = { session:[], selected:null, sid:newSid(), llmOff:false, epView:'active', deal:{goal:null,amount:null},
   filter:'all', focus:[], focusMode:false, expanded:false, metric:'pr', hiddenLines:new Set(),
   panel:'closed', view:{kind:'card',inn:null}, ctx:'start' };
 
@@ -1059,7 +1060,7 @@ function agentAnswer(q){
   const t=q.toLowerCase().trim();
   const inns=[...new Set((q.match(/\d{10,12}/g)||[]).filter(x=>x.length===10||x.length===12))];
   if(/^доступн|доступные инн|какие инн|список компаний/.test(t)){ S.ctx=S.session.length?S.ctx:'start'; return `<p>В моковой базе макета 10 отчётов (в проде — 100, через инструмент <code>list_reports</code>). Клик по строке добавляет в сессию:</p><table><tr><th>ИНН</th><th>Компания</th><th>Метка банка</th></tr>${Object.values(DB).map(c=>`<tr class="pick" data-add="${c.inn}"><td class="mono">${c.inn}</td><td>${esc(c.short)}</td><td>${riskStatus(c)}</td></tr>`).join('')}</table>`; }
-  if(/^(очист|сброс|начать заново|новая сессия)/.test(t)){ S.session=[]; S.deal={goal:null,amount:null}; S.focus=[]; S.focusMode=false; S.filter='all'; S.ctx='start'; Object.values(DB).forEach(x=>{x._briefed=false;x._brief=null;}); return `<p>Сессия очищена. Введите ИНН, чтобы начать.</p>`; }
+  if(/^(очист|сброс|начать заново|новая сессия)/.test(t)){ S.session=[]; S.deal={goal:null,amount:null}; S.focus=[]; S.focusMode=false; S.filter='all'; S.ctx='start'; S.sid=newSid(); Object.values(DB).forEach(x=>{x._briefed=false;x._brief=null;}); return `<p>Сессия очищена. Введите ИНН, чтобы начать.</p>`; }
   if(/^(убери|удали|убрать|удалить|исключи)/.test(t)){
     const c = inns.length?DB[inns[0]]:findByName(t);
     if(!c||!S.session.includes(c.inn)) return `<p>Не нашёл такого контрагента в сессии. Сейчас в сессии: ${names(cs())||'никого'}.</p>`;
@@ -1189,7 +1190,7 @@ function isClientOp(text){
 
 /* Контекст сессии для агента (ИНН, текущая, что уже разбирали, контекст сделки) */
 function sessionCtx(){
-  return {inns:[...S.session], selected:S.selected,
+  return {inns:[...S.session], selected:S.selected, sid:S.sid,
     assessment:Object.fromEntries(S.session.map(i=>[i,!!DB[i]._briefed])),
     deal:(S.deal.goal||S.deal.amount)?{goal:S.deal.goal,amount:S.deal.amount}:null};
 }
@@ -1267,7 +1268,7 @@ document.addEventListener('click',e=>{
   const t=e.target, d=t.dataset, cl=s=>t.closest(s);
   if(d.del){ e.stopPropagation(); send('убери '+DB[d.del].short); }
   else if(d.deldeal){ S.deal={goal:null,amount:null}; renderAll(); }
-  else if(d.clear){ e.preventDefault(); if(confirm('Очистить сессию? Контрагенты, контекст сделки и история чата будут сброшены.')){ S.session=[]; S.deal={goal:null,amount:null}; S.focus=[]; S.focusMode=false; S.panel='closed'; Object.values(DB).forEach(x=>{x._briefed=false;x._brief=null;}); renderAll(); greet(); } }
+  else if(d.clear){ e.preventDefault(); if(confirm('Очистить сессию? Контрагенты, контекст сделки и история чата будут сброшены.')){ S.session=[]; S.deal={goal:null,amount:null}; S.focus=[]; S.focusMode=false; S.panel='closed'; S.sid=newSid(); Object.values(DB).forEach(x=>{x._briefed=false;x._brief=null;}); renderAll(); greet(); } }
   else if(cl('.cchip[data-inn]')){ showCompanySummary(cl('.cchip[data-inn]').dataset.inn); }
   else if(t.classList.contains('ref')){ e.stopPropagation(); openRef(d.ref, cl('.msg')?innOf(t):null); }
   else if(cl('.fact')){ openRef(cl('.fact').dataset.ref, cl('.msg')?innOf(t):null); }
