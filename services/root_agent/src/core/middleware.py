@@ -11,70 +11,43 @@ from typing import Callable
 
 
 class TrimMessagesMiddleware(AgentMiddleware):
-    def __init__(self, max_messages: int = 15, max_tool_messages: int = 1):
+    def __init__(self, max_messages: int = 20, max_tool_messages: int = 2):
         self.max_messages = max_messages
         self.max_tool_messages = max_tool_messages
 
-    async def awrap_model_call(self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]) -> ModelResponse:
+    async def awrap_model_call(self, request: ModelRequest, handler: Callable) -> ModelResponse:
         messages = request.state["messages"]
-
-        # Группируем сообщения в чанки (от новых к старым)
-        chunks = []
-        i = len(messages) - 1
         
-        while i >= 0:
-            msg = messages[i]
-            
-            if isinstance(msg, ToolMessage):
-                # Собираем подряд идущие ToolMessages
-                chunk = [msg]
-                while i > 0 and isinstance(messages[i-1], ToolMessage):
-                    i -= 1
-                    chunk.append(messages[i])
-                
-                # Забираем родительский AIMessage с tool_calls
-                if i > 0 and isinstance(messages[i-1], AIMessage) and messages[i-1].tool_calls:
-                    i -= 1
-                    chunk.append(messages[i])
-                    chunks.append(list(reversed(chunk))) # Восстанавливаем хронологию
-            else:
-                if isinstance(msg, AIMessage):
-                    if msg.tool_calls or not msg.content:
-                        pass # Отбрасываем висящие AIMessage и пустые
-                    else:
-                        chunks.append([msg])
-                else:
-                    # HumanMessage и другие
-                    chunks.append([msg])
-            
-            i -= 1
-
-        # Собираем итоговый список
-        limited_messages = []
-        total_count = 0
+        # Всегда держим последние 2 сообщения (текущий запрос и ответ)
+        always_keep = messages[-2:]
+        
+        # Для остальных сообщений применяем обрезку по тулам
+        older_messages = messages[:-2] if len(messages) > 2 else []
+        
+        # Собираем кандидатов на сокращение
+        keep_messages = []
         tool_count = 0
+        
+        for msg in reversed(older_messages):
+            if isinstance(msg, (ToolMessage, AIMessage)):
+                if msg.tool_calls or isinstance(msg, ToolMessage):
+                    if tool_count < self.max_tool_messages:
+                        tool_count += 1
+                        keep_messages.append(msg)
+                    continue  # Пропускаем старые tool-сообщения
+            keep_messages.append(msg)
+        
+        # Ограничиваем до max_messages
+        older_messages = list(reversed(keep_messages[-self.max_messages:]))
+        final_messages = older_messages + always_keep
 
-        for chunk in chunks:
-            chunk_tools = sum(1 for m in chunk if isinstance(m, ToolMessage))
-            chunk_len = len(chunk)
-
-            # Динамическая проверка:
-            # 1. Общий лимит (max_messages) еще не исчерпан
-            # 2. Лимит тулов (max_tool_messages) не исчерпан для текущего чанка
-            if (total_count + chunk_len) <= self.max_messages and (tool_count + chunk_tools) <= self.max_tool_messages:
-                limited_messages = chunk + limited_messages
-                total_count += chunk_len
-                tool_count += chunk_tools
-            # Если условие не выполняется, мы просто идем к следующему чанку 
-
-        # Создаем запрос с отфильтрованными сообщениями
         modified_request = ModelRequest(
             state=request.state,
             model=request.model,
             tools=request.tools,
             runtime=request.runtime,
             system_prompt=request.system_prompt,
-            messages=limited_messages,   #  меняем сообщения только для LLM, не меняя состояние
+            messages=final_messages,
             tool_choice=request.tool_choice,
             response_format=request.response_format
         )
