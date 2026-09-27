@@ -1,12 +1,12 @@
 """
-structured output агента проверки контрагентов.
+Промпт и контракт structured output агента проверки контрагентов.
 
-Здесь лежат ДВЕ вещи, согласованные с фронтом (`reqs/ui/mockup.html`) и
-спеками (`signal_rules.md` §5–6, `functional_spec.md` §7, cursor-док
+Единственный источник этих ДВУХ вещей (согласованы с фронтом — `reqs/ui/mockup.html` —
+и спеками: `signal_rules.md` §5–6, `functional_spec.md` §7, cursor-док
 `Agent report integration` §4):
 
-  SYSTEM_PROMPT   — «правильный» системный промпт (сейчас в prompts.py заглушка).
-  RESPONSE_SCHEMA — JSON Schema для response_format=json_schema (structured output).
+  SYSTEM_PROMPT   — системный промпт агента.
+  RESPONSE_SCHEMA — JSON Schema для response_format (structured output).
 
 Принцип (как в cursor-доке): LLM НЕ придумывает поля и не «вставляет ссылки» в
 текст. Она получает результат детерминированного движка правил (`analyze`/

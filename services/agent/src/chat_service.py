@@ -9,6 +9,7 @@ async-сигнатур (раньше каждый запрос крутил св
 import json
 import logging
 import re
+import uuid
 
 from langchain_core.messages import HumanMessage
 
@@ -87,8 +88,10 @@ async def agent_turn(message: str, session: dict):
 
     # thread_id = идентификатор сессии с фронта (sid). Новая/очищенная сессия → новый sid →
     # свежая память агента. Иначе пустые сессии делили общий тред "anonymous" и агент
-    # «вспоминал» чужой прошлый разбор вместо свежего анализа.
-    thread_id = str(session.get("sid") or session.get("selected") or "anonymous")
+    # «вспоминал» чужой прошлый разбор вместо свежего анализа. Запрос без sid получает
+    # одноразовый uuid: чужая память не подмешается, а накапливать ей нечего.
+    sid = session.get("sid")
+    thread_id = str(sid) if sid else uuid.uuid4().hex
 
     result = await _agent_invoke(message, session, thread_id)
 
@@ -180,6 +183,3 @@ async def run_chat(payload: dict) -> dict:
     return {"ok": True, "turn": turn, "validation": validation}
 
 
-def agent_initialized() -> bool:
-    """Агент инициализируется лениво — до первого запроса _agent is None."""
-    return root_agent._agent is not None
