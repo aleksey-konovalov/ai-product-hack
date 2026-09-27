@@ -10,9 +10,17 @@
 Переменные окружения: PORT (по умолчанию 8080), AGENT_ORIGIN (по умолчанию http://localhost:8130).
 """
 import http.server
+import json
+import logging
 import os
 import urllib.error
 import urllib.request
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)-8s %(name)s - %(message)s",
+)
+log = logging.getLogger("web_ui.dev")
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 AGENT_ORIGIN = os.getenv("AGENT_ORIGIN", "http://localhost:8130").rstrip("/")
@@ -42,9 +50,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             data, status, ctype = e.read(), e.code, e.headers.get("Content-Type", "application/json")
         except urllib.error.URLError as e:
             # Агент не поднят — фронт покажет «Локальный агент недоступен»
-            import json
+            log.error("proxy %s %s → agent unreachable: %s", self.command, self.path, e.reason)
             data = json.dumps({"ok": False, "error": f"agent unreachable: {e.reason}"}).encode()
             status, ctype = 502, "application/json"
+        log.info("proxy %s %s → %s", self.command, self.path, status)
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
@@ -61,10 +70,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._proxy()
         self.send_error(404)
 
-    def log_message(self, *args):
-        pass
+    def log_message(self, format, *args):
+        # Дефолтный access-лог http.server перенаправляем в logging
+        log.info("%s %s", self.address_string(), format % args)
 
 
 if __name__ == "__main__":
-    print(f"web_ui dev server on http://localhost:{PORT} (agent: {AGENT_ORIGIN})")
+    log.info("web_ui dev server on http://localhost:%s (agent: %s)", PORT, AGENT_ORIGIN)
     http.server.ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
