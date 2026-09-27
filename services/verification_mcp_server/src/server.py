@@ -23,7 +23,7 @@ def _transport_security():
     """Настройка защиты MCP-транспорта (DNS-rebinding) через окружение.
 
     По умолчанию FastMCP разрешает только Host=localhost, поэтому в docker-сети,
-    где root_agent ходит по имени сервиса (verification_mcp_server:3010), запросы
+    где agent ходит по имени сервиса (verification_mcp_server:3010), запросы
     отклоняются с HTTP 421. Управляем через env:
       MCP_ALLOW_ALL_HOSTS=1        — отключить проверку (для внутренней docker-сети);
       FASTMCP_ALLOWED_HOSTS=a,b    — явный список разрешённых Host (иначе);

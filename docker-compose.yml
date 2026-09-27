@@ -22,23 +22,39 @@ services:
       - MCP_ALLOW_ALL_HOSTS=1
     restart: unless-stopped
 
-  # Бэкенд-агент: чат + structured output, данные тянет через MCP-сервер
-  root_agent:
+  # Бэкенд-агент: чистый API (/chat, /health), статику не раздаёт.
+  # Порт наружу не публикуется — фронт ходит через web_ui.
+  agent:
     build:
       context: .
-      dockerfile: ./services/root_agent/Dockerfile
-    container_name: root_agent
-    ports:
-      - "8130:8130"
+      dockerfile: ./services/agent/Dockerfile
+    container_name: agent
+    expose:
+      - "8130"
+    # Для отладки API напрямую (минуя web_ui) раскомментируйте:
+    # ports:
+    #   - "8130:8130"
     env_file:
       # ACTIVE_LLM_PROFILE и DSLAB_API_KEY (файл в git не коммитится — секреты)
-      - ./services/root_agent/.env
+      - ./services/agent/.env
     environment:
       # Внутри docker-сети MCP доступен по имени сервиса, а не по localhost
       - MCP_VERIFICATION_URL=http://verification_mcp_server:3010/mcp
       - PORT=8130
     depends_on:
       - verification_mcp_server
+    restart: unless-stopped
+
+  # Веб-интерфейс: статика + reverse proxy /chat,/health → agent
+  web_ui:
+    build:
+      context: .
+      dockerfile: ./services/web_ui/Dockerfile
+    container_name: web_ui
+    ports:
+      - "8080:80"              # единственный вход для пользователя
+    depends_on:
+      - agent
     restart: unless-stopped
 
   # Локальный inference (по требованию, только с GPU): docker compose --profile vllm up

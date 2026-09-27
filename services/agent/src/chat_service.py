@@ -1,15 +1,20 @@
-# web_agent.py (упрощённый)
 """
-Локальный веб-агент: общается с фронтом, делегирует логику root_agent.
+Логика ответа агента: сборка контекста сессии, вызов root_agent,
+извлечение structured output и фолбэки, когда модель вернула прозу вместо JSON.
+
+Выделено из web_agent.py при разделении UI и агента: транспорт живёт в app.py,
+здесь только серверная логика. Алгоритм перенесён без изменений, кроме
+async-сигнатур (раньше каждый запрос крутил свой event loop через asyncio.run).
 """
 import json
+import logging
 import re
-import os
-import asyncio
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
 from langchain_core.messages import HumanMessage
 
 from .core.agent import root_agent
+
+log = logging.getLogger("agent.chat")
 
 
 def _extract_json(s: str) -> str:
@@ -49,17 +54,6 @@ def _extracted_inns(result):
     return fetched, missing
 
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-PORT = int(os.getenv("PORT", "8130"))
-
-# Логи (сохраняем те же)
-import logging
-LOG_PATH = os.getenv("WEB_AGENT_LOG", os.path.join(HERE, "..", "logs", "web_agent.log"))
-os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
-log = logging.getLogger("web_agent")
-# ... (настройка логгера как раньше)
-
-
 def _session_ctx(session: dict) -> str:
     """Формируем контекст сессии для агента."""
     inns = [str(i) for i in (session.get("inns") or [])]
@@ -72,7 +66,6 @@ def _session_ctx(session: dict) -> str:
     return " ".join(parts) or "Сессия пуста."
 
 
-
 async def _agent_invoke(message: str, session: dict, thread_id: str = "main"):
     """Вызываем root_agent с контекстом сессии."""
     ctx = _session_ctx(session)
@@ -80,26 +73,25 @@ async def _agent_invoke(message: str, session: dict, thread_id: str = "main"):
         f"Сессия пользователя: {ctx}\n\n"
         f"Вопрос пользователя: {message}"
     )
-    result = await root_agent.ainvoke(
+    return await root_agent.ainvoke(
         {
             "messages": [HumanMessage(content=user_input)],
         },
         config={"configurable": {"thread_id": thread_id}},  # thread_id уникален для сессии
     )
-    return result
 
 
-def agent_turn(message: str, session: dict):
-    """Синхронная обёртка для HTTP-хендлера."""
+async def agent_turn(message: str, session: dict):
+    """Полный ход агента: invoke → structured output → фолбэки."""
     log.info("ЗАПРОС: message=%r | сессия: %s", message, _session_ctx(session))
-    
+
     # thread_id = идентификатор сессии с фронта (sid). Новая/очищенная сессия → новый sid →
     # свежая память агента. Иначе пустые сессии делили общий тред "anonymous" и агент
     # «вспоминал» чужой прошлый разбор вместо свежего анализа.
     thread_id = str(session.get("sid") or session.get("selected") or "anonymous")
-    
-    result = asyncio.run(_agent_invoke(message, session, thread_id))
-        
+
+    result = await _agent_invoke(message, session, thread_id)
+
     # Основной путь: строгий structured output от агента (response_format=ToolStrategy).
     turn = None
     content = ""
@@ -164,65 +156,30 @@ def agent_turn(message: str, session: dict):
     return turn, {}, "agent"
 
 
-class Handler(BaseHTTPRequestHandler):
-    def _send(self, code, body, ctype="application/json"):
-        data = body if isinstance(body, bytes) else json.dumps(body, ensure_ascii=False).encode()
-        self.send_response(code)
-        self.send_header("Content-Type", ctype + ("; charset=utf-8" if "json" in ctype or "html" in ctype else ""))
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
-
-    def log_message(self, *a):
-        pass
-
-    def do_GET(self):
-        if self.path in ("/", "/index.html"):
-            path = os.path.join(HERE, "web", "index.html")
-            if not os.path.exists(path):
-                return self._send(404, {"error": "index.html not built"})
-            with open(path, "rb") as f:
-                return self._send(200, f.read(), "text/html")
-        if self.path.startswith("/health"):
-            profile = None
-            try:
-                # Попытка получить информацию о профиле
-                env = {}
-                import importlib.util
-                spec = importlib.util.spec_from_file_location("_profile_check", os.path.join(HERE, "..", ".env"))
-                # not needed — просто вернём базовые данные
-            except Exception:
-                pass
-            return self._send(200, {"ok": True, "agent_initialized": root_agent._agent is not None,
-                                    "model": os.getenv("LM_MODEL", "unknown")})
-        return self._send(404, {"error": "not found"})
-
-    def do_POST(self):
-        if self.path != "/chat":
-            return self._send(404, {"error": "not found"})
-        try:
-            n = int(self.headers.get("Content-Length", 0))
-            payload = json.loads(self.rfile.read(n) or b"{}")
-        except Exception as e:
-            return self._send(400, {"ok": False, "error": f"bad request: {e}"})
-        
-        session = payload.get("session")
-        if not session:
-            ar = payload.get("analyze_results") or {}
-            session = {"inns": list(ar.keys()), "selected": payload.get("primary_inn"),
-                       "assessment": {k: v.get("assessment_given") for k, v in ar.items()},
-                       "deal": next((v.get("deal_context") for v in ar.values() if v.get("deal_context")), None)}
-        
-        try:
-            turn, analyze, source = agent_turn(payload.get("message", ""), session)
-        except Exception as e:
-            return self._send(200, {"ok": False, "error": f"agent error: {e}"})
-        
-        validation = {"data_source": source, "issues": [],
-                      "fetched": turn.pop("_fetched", []), "missing": turn.pop("_missing", [])}
-        return self._send(200, {"ok": True, "turn": turn, "validation": validation})
+def _legacy_session(payload: dict) -> dict:
+    """Совместимость со старым клиентом: сессия собирается из analyze_results."""
+    ar = payload.get("analyze_results") or {}
+    return {
+        "inns": list(ar.keys()),
+        "selected": payload.get("primary_inn"),
+        "assessment": {k: v.get("assessment_given") for k, v in ar.items()},
+        "deal": next((v.get("deal_context") for v in ar.values() if v.get("deal_context")), None),
+    }
 
 
-if __name__ == "__main__":
-    print(f"web_agent on http://localhost:{PORT}")
-    ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
+async def run_chat(payload: dict) -> dict:
+    """Точка входа POST /chat: сессия → ход агента → контракт ответа фронта."""
+    session = payload.get("session")
+    if not session:
+        session = _legacy_session(payload)
+
+    turn, analyze, source = await agent_turn(payload.get("message", ""), session)
+
+    validation = {"data_source": source, "issues": [],
+                  "fetched": turn.pop("_fetched", []), "missing": turn.pop("_missing", [])}
+    return {"ok": True, "turn": turn, "validation": validation}
+
+
+def agent_initialized() -> bool:
+    """Агент инициализируется лениво — до первого запроса _agent is None."""
+    return root_agent._agent is not None
