@@ -209,3 +209,6 @@ cython_debug/
 
 # Логи сервисов
 services/*/logs/
+
+# ZCode служебные файлы
+.zcode/

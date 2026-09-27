@@ -4,13 +4,15 @@
 
 | Контейнер | Порт | Назначение |
 |---|---|---|
-| `web_ui` | `8080` | Веб-интерфейс: статика + reverse proxy `/chat`, `/health` → agent. **Единственный вход для пользователя** |
+| `web_ui` | `${WEB_UI_PORT:-8080}` → 80 | Веб-интерфейс: статика + reverse proxy `/chat`, `/health` → agent. **Единственный вход для пользователя** |
 | `agent` | `8130` (внутренний) | API агента (FastAPI): чат, structured output. Наружу не публикуется |
-| `verification_mcp_server` | `3010` | MCP-сервер: данные о контрагентах по ИНН. Наружу обычно не публикуется |
+| `verification_mcp_server` | `3010` (внутренний) | MCP-сервер: данные о контрагентах по ИНН. Наружу не публикуется |
 
 `web_ui` проксирует запросы в `agent` по внутренней сети compose (`http://agent:8130`),
 `agent` ходит в MCP (`http://verification_mcp_server:3010/mcp`).
-Данные монтируются из `./data` в MCP-контейнер (read-only).
+Данные монтируются из `./data` в MCP-контейнер (read-only). Наружу публикуется
+только порт web_ui — он задаётся переменной `WEB_UI_PORT` из корневого `.env`
+(по умолчанию 8080; при конфликте с другим приложением поменяйте там).
 
 ---
 
@@ -39,6 +41,7 @@ cd AITHackathon
 
 ```bash
 cp services/agent/.env.example services/agent/.env
+cp .env.example .env      # переменные compose; нужен порт входа, отличный от 8080 — меняйте WEB_UI_PORT
 ```
 
 Отредактировать `services/agent/.env`:
@@ -88,18 +91,22 @@ docker compose down                            # остановить всё
 
 ## Отладка API напрямую (минуя web_ui)
 
-По умолчанию порт агента наружу не публикуется. Для отладки раскомментируйте
-блок `ports` у сервиса `agent` в `docker-compose.yml` (`8130:8130`) и:
+Основной compose наружу ничего не публикует, кроме web_ui. Для отладки
+подключите файл с отладочными портами (хост = внутренний + 10000):
 
 ```bash
-curl -s -X POST http://localhost:8130/chat -H 'Content-Type: application/json' \
+docker compose -f docker-compose.yml -f docker-compose.debug.yml up -d
+# agent: 18130, MCP: 13010
+curl -s -X POST http://localhost:18130/chat -H 'Content-Type: application/json' \
   -d '{"message":"проверь 9721159668","session":{"inns":["9721159668"],"sid":"debug"}}'
 ```
+
+После отладки перезапустите обычным `docker compose up -d` — публикации закроются.
 
 ## Замечания по безопасности
 
 - `.env`-файлы и реальный `DSLAB_API_KEY` в git не коммитятся (см. `.gitignore`).
-- Порт агента `8130` наружу не публикуется — достаточно `expose` внутри docker-сети.
-- MCP-порт `3010` наружу тоже не нужен — он используется только контейнером `agent`.
-  Чтобы закрыть, удалите блок `ports` у `verification_mcp_server` в `docker-compose.yml`
-  (секция `expose` оставляет его доступным внутри docker-сети).
+- Наружу публикуется только web_ui (`${WEB_UI_PORT:-8080}`); agent (`8130`) и MCP
+  (`3010`) доступны только внутри docker-сети. Отладочные публикации — только в
+  `docker-compose.debug.yml`, на постоянной основе не оставляйте.
+- Логи сервисов ротируются docker'ом (`max-size: 10m`, 3 файла) — диск VM не переполняется.
