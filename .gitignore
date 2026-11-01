@@ -205,6 +205,10 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+.zcodeignore
 
 # Логи сервисов
 services/*/logs/
+
+# ZCode служебные файлы
+.zcode/

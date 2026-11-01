@@ -1,3 +1,10 @@
+# Ротация логов на стороне docker: сервисы пишут только в stdout
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   # MCP-сервер верификации: источник данных о контрагентах по ИНН
   verification_mcp_server:
@@ -7,38 +14,56 @@ services:
     container_name: verification_mcp_server
     expose:
       - "3010"                 # доступен другим контейнерам по имени сервиса
-    ports:
-      - "3010:3010"            # опубликован наружу (можно убрать, если не нужен снаружи)
+    # Порт наружу не публикуется — для отладки см. docker-compose.debug.yml
     volumes:
       # Монтируем папку data внутрь контейнера для доступа mcp-сервера к данным.
       - ./data:/opt/data:ro
     environment:
-      - FASTMCP_HOST=0.0.0.0   # обязательно 0.0.0.0 для доступа извне контейнера
-      - FASTMCP_PORT=3010
+      - PORT=3010
       - COUNTERAGENTS_DB_PATH=/opt/data/contractors_audit.snapshot.json
       - COUNTERAGENTS_FULL_PAYLOAD=1
       # Разрешаем обращение по имени сервиса из docker-сети (иначе FastMCP отдаёт HTTP 421
-      # из-за защиты от DNS-rebinding). Порт 3010 наружу в проде не публикуется.
+      # из-за защиты от DNS-rebinding)
       - MCP_ALLOW_ALL_HOSTS=1
+    logging: *default-logging
     restart: unless-stopped
 
-  # Бэкенд-агент: чат + structured output, данные тянет через MCP-сервер
-  root_agent:
+  # Бэкенд-агент: чистый API (/chat, /health), статику не раздаёт.
+  # Порт наружу не публикуется — фронт ходит через web_ui.
+  agent:
     build:
       context: .
-      dockerfile: ./services/root_agent/Dockerfile
-    container_name: root_agent
-    ports:
-      - "8130:8130"
+      dockerfile: ./services/agent/Dockerfile
+    container_name: agent
+    expose:
+      - "8130"
     env_file:
       # ACTIVE_LLM_PROFILE и DSLAB_API_KEY (файл в git не коммитится — секреты)
-      - ./services/root_agent/.env
+      - ./services/agent/.env
     environment:
       # Внутри docker-сети MCP доступен по имени сервиса, а не по localhost
       - MCP_VERIFICATION_URL=http://verification_mcp_server:3010/mcp
       - PORT=8130
     depends_on:
-      - verification_mcp_server
+      verification_mcp_server:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+
+  # Веб-интерфейс: статика + reverse proxy /chat,/health → agent
+  web_ui:
+    build:
+      context: .
+      dockerfile: ./services/web_ui/Dockerfile
+    container_name: web_ui
+    ports:
+      # Единственный вход для пользователя; порт — переменная (8080 популярен
+      # и может конфликтовать с другим приложением): см. .env.example
+      - "${WEB_UI_PORT:-8080}:80"
+    depends_on:
+      agent:
+        condition: service_healthy
+    logging: *default-logging
     restart: unless-stopped
 
   # Локальный inference (по требованию, только с GPU): docker compose --profile vllm up
@@ -50,8 +75,8 @@ services:
     container_name: vllm
     env_file:
       - ./services/vllm/.env  # Для варьирования параметров без ребилда
-    ports:
-      - "3040:8901"
+    # Порт наружу не публикуется — агент ходит в vllm по внутренней сети
+    # (http://vllm:8901/v1); для отладки см. docker-compose.debug.yml
     volumes:
       - vllm-models:/root/.cache/huggingface # Чтобы не качать модель заново каждый раз
     deploy:
@@ -61,8 +86,8 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    logging: *default-logging
     restart: unless-stopped
 
 volumes:
-  app-cache:
   vllm-models:

@@ -1,130 +1,58 @@
-import os
-import json
+"""
+Работа с базой контрагентов: загрузка снапшота (с кэшем по mtime), поиск по ИНН,
+сборка payload для MCP-тула.
+"""
 import asyncio
+import json
+import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 Counteragent = Dict[str, Any]
-InnInput = Optional[Union[str, Iterable[str]]]
-AgentCallback = Callable[[Any], Any]
-PayloadBuilder = Callable[[Counteragent], Any]
+InnInput = Optional[Union[str, int, Iterable[str]]]
+DbSource = Union[List[Counteragent], str, Path]
 
 
-async def _normalize_inns(inns: InnInput) -> List[str]:
+def _normalize_inns(inns: InnInput) -> List[str]:
     """
-    Приводит входные ИНН к списку строк.
+    Приводит входные ИНН к списку уникальных непустых строк.
     Поддерживает один ИНН (строкой или числом) или список/кортеж ИНН.
     """
     if inns is None:
         return []
 
     # Одиночный ИНН может прийти не строкой (например, числом из JSON)
-    if isinstance(inns, (str, int)):
-        raw_items = [inns]
-    else:
-        raw_items = list(inns)
+    raw_items = [inns] if isinstance(inns, (str, int)) else list(inns)
 
-    seen: Set[str] = set()
+    seen: set = set()
     result: List[str] = []
-
     for item in raw_items:
         inn = str(item).strip()
         if inn and inn not in seen:
             seen.add(inn)
             result.append(inn)
-
     return result
 
 
-async def _extract_base_inn(record: Counteragent) -> str:
+def _extract_base_inn(record: Counteragent) -> str:
     """
     Достает ИНН контрагента из report.baseInfo.inn.
     Если поля нет или структура битая, возвращает пустую строку.
     """
     if not isinstance(record, dict):
         return ""
-
     report = record.get("report")
     if not isinstance(report, dict):
         return ""
-
     base_info = report.get("baseInfo")
     if not isinstance(base_info, dict):
         return ""
-
     inn = base_info.get("inn")
     return "" if inn is None else str(inn).strip()
 
 
-async def load_db(source: Union[List[Counteragent], str, Path]) -> List[Counteragent]:
-    """
-    Загружает базу контрагентов.
-    Поддерживает:
-    - уже готовый list;
-    - JSON-строку;
-    - путь к JSON-файлу.
-    """
-    if isinstance(source, list):
-        return source
-
-    if isinstance(source, Path):
-        data = json.loads(await asyncio.to_thread(source.read_text, encoding="utf-8"))
-
-    elif isinstance(source, str):
-        text = source.strip()
-
-        # Если передали сам JSON, а не путь к файлу
-        if text.startswith(("[", "{")):
-            data = json.loads(text)
-        else:
-            path = Path(text)
-            if not path.exists():
-                raise FileNotFoundError(f"Файл с JSON не найден: {text}")
-
-            data = json.loads(path.read_text(encoding="utf-8"))
-    else:
-        raise TypeError("db должен быть списком объектов, JSON-строкой или Path")
-
-    # Если JSON представлен одним объектом, оборачиваем его в список
-    if isinstance(data, dict):
-        data = [data]
-
-    if not isinstance(data, list):
-        raise ValueError("Ожидается, что база контрагентов является списком объектов")
-
-    return data
-
-
-async def get_counteragents_by_inn(
-    db: Union[List[Counteragent], str, Path],
-    inns: InnInput,
-) -> Tuple[List[Counteragent], List[str]]:
-    """
-    Возвращает:
-    - найденных контрагентов;
-    - список ИНН, которые не найдены.
-    """
-    records = await load_db(db)
-
-    wanted = await _normalize_inns(inns)
-    wanted_set = set(wanted)
-
-    found: List[Counteragent] = []
-    found_inns: Set[str] = set()
-
-    for record in records:
-        inn = await _extract_base_inn(record)
-
-        if inn in wanted_set:
-            found.append(record)
-            found_inns.add(inn)
-
-    missing = [inn for inn in wanted if inn not in found_inns]
-
-    return found, missing
-
-
-async def short_company_info(record: Counteragent) -> Dict[str, Any]:
+def short_company_info(record: Counteragent) -> Counteragent:
+    """Компактная сводка по контрагенту (когда полные отчёты не нужны)."""
     report = record.get("report") or {}
     base_info = report.get("baseInfo") or {}
     status = report.get("status") or {}
@@ -146,60 +74,81 @@ async def short_company_info(record: Counteragent) -> Dict[str, Any]:
     }
 
 
-async def fetch_counteragents_for_agent(
-    db: Union[List[Counteragent], str, Path],
+def _ensure_list(data) -> List[Counteragent]:
+    """JSON-база: один объект оборачиваем в список, иначе проверяем тип."""
+    if isinstance(data, dict):
+        data = [data]
+    if not isinstance(data, list):
+        raise ValueError("Ожидается, что база контрагентов является списком объектов")
+    return data
+
+
+def _build_index(records: List[Counteragent]) -> Dict[str, List[Counteragent]]:
+    """Индекс ИНН → записи (один ИНН может встречаться несколько раз)."""
+    index: Dict[str, List[Counteragent]] = {}
+    for record in records:
+        inn = _extract_base_inn(record)
+        if inn:
+            index.setdefault(inn, []).append(record)
+    return index
+
+
+class _SnapshotCache:
+    """
+    Кэш файловой базы: перечитывает файл только при изменении mtime и держит
+    индекс ИНН → записи, чтобы каждый вызов тула не парсил весь снапшот заново.
+    Одноразовые источники (list, JSON-строка) обрабатываются без кэша.
+    """
+
+    def __init__(self):
+        self._path: Optional[Path] = None
+        self._mtime: Optional[float] = None
+        self._index: Dict[str, List[Counteragent]] = {}
+
+    def get_index(self, source: DbSource) -> Dict[str, List[Counteragent]]:
+        if isinstance(source, list):
+            return _build_index(source)
+
+        text = str(source).strip()
+        # Если передали сам JSON, а не путь к файлу
+        if text.startswith(("[", "{")):
+            return _build_index(_ensure_list(json.loads(text)))
+
+        path = Path(text)
+        if not path.exists():
+            raise FileNotFoundError(f"Файл с JSON не найден: {text}")
+
+        mtime = path.stat().st_mtime
+        if path != self._path or mtime != self._mtime:
+            self._index = _build_index(_ensure_list(json.loads(path.read_text(encoding="utf-8"))))
+            self._path, self._mtime = path, mtime
+        return self._index
+
+
+_cache = _SnapshotCache()
+
+
+def get_counteragents_by_inn(
+    db: DbSource,
     inns: InnInput,
-    agent: AgentCallback,
-    *,
-    per_record: bool = False,
-    raise_on_missing: bool = False,
-    payload_builder: Optional[PayloadBuilder] = None,
-) -> Dict[str, Any]:
+) -> tuple[List[Counteragent], List[str]]:
     """
-    Достает одного или нескольких контрагентов по ИНН и передает их данные агенту.
-
-    Параметры:
-    - db: список контрагентов, JSON-строка или путь к JSON-файлу;
-    - inns: один ИНН или список ИНН;
-    - agent: функция/обработчик, который получит данные;
-    - per_record:
-        False: агент получит список найденных контрагентов;
-        True: агент будет вызван отдельно для каждого контрагента;
-    - raise_on_missing:
-        False: если часть ИНН не найдена, функция просто укажет их в missing;
-        True: если есть ненайденные ИНН, будет выброшена ошибка;
-    - payload_builder:
-        функция, которая может преобразовать исходную запись контрагента
-        в более компактный объект перед отправкой агенту.
-
     Возвращает:
-    {
-        "found": [...],              # исходные найденные записи
-        "missing": [...],            # ИНН, которые не найдены
-        "payload_sent_to_agent": ... # то, что реально передали агенту
-    }
+    - найденных контрагентов (в порядке запрошенных ИНН);
+    - список ИНН, которые не найдены.
     """
-    found, missing = await get_counteragents_by_inn(db, inns)
+    index = _cache.get_index(db)
+    wanted = _normalize_inns(inns)
 
-    if missing and raise_on_missing:
-        raise LookupError(f"Не найдены контрагенты по ИНН: {', '.join(missing)}")
+    found: List[Counteragent] = []
+    found_inns: set = set()
+    for inn in wanted:
+        for record in index.get(inn, []):
+            found.append(record)
+            found_inns.add(inn)
 
-    if payload_builder is not None:
-        payload = [payload_builder(record) for record in found]
-    else:
-        payload = found
-
-    if per_record:
-        for item in payload:
-            agent(item)
-    else:
-        agent(payload)
-
-    return {
-        "found": found,
-        "missing": missing,
-        "payload_sent_to_agent": payload,
-    }
+    missing = [inn for inn in wanted if inn not in found_inns]
+    return found, missing
 
 
 def _use_full_payload() -> bool:
@@ -212,14 +161,14 @@ def _use_full_payload() -> bool:
 
 
 async def build_counteragents_payload(
-    db: Union[List[Counteragent], str, Path],
+    db: DbSource,
     inns: InnInput,
     *,
     raise_on_missing: bool = False,
     full: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
-    Собирает ответ для MCP-тула (без колбэков):
+    Собирает ответ для MCP-тула:
     - found: данные найденных контрагентов;
     - missing: ИНН, которых нет в базе.
 
@@ -228,7 +177,8 @@ async def build_counteragents_payload(
     возвращаются полные исходные записи контрагентов.
     Аргумент full имеет приоритет над env-переменной.
     """
-    found, missing = await get_counteragents_by_inn(db, inns)
+    # Чтение файла при смене mtime — блокирующий I/O, выносим из event loop
+    found, missing = await asyncio.to_thread(get_counteragents_by_inn, db, inns)
 
     if missing and raise_on_missing:
         raise LookupError(f"Не найдены контрагенты по ИНН: {', '.join(missing)}")
@@ -236,10 +186,7 @@ async def build_counteragents_payload(
     if full is None:
         full = _use_full_payload()
 
-    if full:
-        found_payload: List[Any] = found
-    else:
-        found_payload = [await short_company_info(record) for record in found]
+    found_payload: List[Any] = found if full else [short_company_info(record) for record in found]
 
     return {
         "found": found_payload,

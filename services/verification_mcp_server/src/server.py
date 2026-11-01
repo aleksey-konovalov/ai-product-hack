@@ -1,8 +1,12 @@
+"""
+MCP-сервер верификации: тул get_companies_info_by_inn — единственный источник
+данных о контрагентах по ИНН.
+"""
+import json
+import logging
 import os
 import re
-import json
 from pathlib import Path
-import asyncio
 
 # Совместимость версий mcp: в mcp<2 класс называется FastMCP (API идентичен:
 # @mcp.tool(), @mcp.resource(), mcp.streamable_http_app()). Пытаемся импортировать
@@ -12,18 +16,19 @@ try:
 except ModuleNotFoundError:
     from mcp.server.fastmcp import FastMCP as MCPServer, Context
 
-# Импорт логгера из shared
-from shared.utils.logger import app_logger, get_logger
-
-# Импорт вспомогательных функций для работы с контрагентами
 from counteragents import build_counteragents_payload
+from shared.logging import setup_logging
+
+setup_logging("verification_mcp_server")
+
+logger = logging.getLogger(__name__)
 
 
 def _transport_security():
     """Настройка защиты MCP-транспорта (DNS-rebinding) через окружение.
 
     По умолчанию FastMCP разрешает только Host=localhost, поэтому в docker-сети,
-    где root_agent ходит по имени сервиса (verification_mcp_server:3010), запросы
+    где agent ходит по имени сервиса (verification_mcp_server:3010), запросы
     отклоняются с HTTP 421. Управляем через env:
       MCP_ALLOW_ALL_HOSTS=1        — отключить проверку (для внутренней docker-сети);
       FASTMCP_ALLOWED_HOSTS=a,b    — явный список разрешённых Host (иначе);
@@ -50,6 +55,12 @@ mcp = MCPServer("verification_mcp_server", transport_security=_sec) if _sec else
 INN_PATTERN = re.compile(r"(?<!\d)\d{10}(?!\d)|(?<!\d)\d{12}(?!\d)")
 
 
+async def _notify(ctx: Context, message: str, *, error: bool = False):
+    """Одно сообщение — и в лог сервиса, и в прогресс MCP-клиенту."""
+    (logger.error if error else logger.info)(message)
+    await (ctx.error(message) if error else ctx.info(message))
+
+
 @mcp.tool()
 async def get_companies_info_by_inn(text: str, ctx: Context) -> str:
     """
@@ -60,8 +71,7 @@ async def get_companies_info_by_inn(text: str, ctx: Context) -> str:
     inns = INN_PATTERN.findall(text)
 
     if not inns:
-        await ctx.info("ИНН в запросе не найдены")
-        app_logger.info("ИНН в запросе не найдены")
+        await _notify(ctx, "ИНН в запросе не найдены")
         return json.dumps(
             {
                 "error": "В запросе не найдено ни одного ИНН.",
@@ -70,37 +80,30 @@ async def get_companies_info_by_inn(text: str, ctx: Context) -> str:
             ensure_ascii=False,
         )
 
-    await ctx.info(f"Извлечённые из запроса ИНН: {', '.join(inns)}")
-    app_logger.info(f"Извлечённые из запроса ИНН: {', '.join(inns)}")
+    await _notify(ctx, f"Извлечённые из запроса ИНН: {', '.join(inns)}")
 
     db_source = Path(os.getenv("COUNTERAGENTS_DB_PATH", "/opt/data/contractors_audit.snapshot.json"))
 
     try:
         payload = await build_counteragents_payload(db_source, inns, raise_on_missing=False)
     except FileNotFoundError as exc:
-        await ctx.error(f"База контрагентов не найдена: {exc}")
-        app_logger.info(f"База контрагентов не найдена: {exc}")
+        await _notify(ctx, f"База контрагентов не найдена: {exc}", error=True)
         return json.dumps({"error": f"База контрагентов не найдена: {exc}"}, ensure_ascii=False)
     except (ValueError, TypeError) as exc:
-        await ctx.error(f"Не удалось прочитать базу контрагентов: {exc}")
-        app_logger.info(f"Не удалось прочитать базу контрагентов: {exc}")
+        await _notify(ctx, f"Не удалось прочитать базу контрагентов: {exc}", error=True)
         return json.dumps({"error": f"Не удалось прочитать базу контрагентов: {exc}"}, ensure_ascii=False)
 
     found_count = len(payload["found"])
     missing = payload["missing"]
 
-    await ctx.info(
+    await _notify(
+        ctx,
         f"Найдено контрагентов: {found_count}"
-        + (f"; не найдены по ИНН: {', '.join(missing)}" if missing else "")
-    )
-    app_logger.info(
-        f"Найдено контрагентов: {found_count}"
-        + (f"; не найдены по ИНН: {', '.join(missing)}" if missing else "")
+        + (f"; не найдены по ИНН: {', '.join(missing)}" if missing else ""),
     )
 
     # Возвращаем агенту компактный JSON-ответ
     return json.dumps(payload, ensure_ascii=False, indent=2)
-
 
 
 # Пример ресурса (Resource)
@@ -112,4 +115,11 @@ async def get_config() -> str:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(mcp.streamable_http_app(), host="0.0.0.0", port=3010)
+
+    # log_config=None: не перенастраивать logging — уже настроен setup_logging()
+    uvicorn.run(
+        mcp.streamable_http_app(),
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "3010")),
+        log_config=None,
+    )

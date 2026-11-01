@@ -1,0 +1,19 @@
+# Отладочные публикации портов. Основной docker-compose.yml наружу публикует
+# только web_ui (см. WEB_UI_PORT в .env.example).
+#
+# Запуск:
+#   docker compose -f docker-compose.yml -f docker-compose.debug.yml up -d
+#
+# Конвенция: хост-порт = внутренний порт сервиса + 10000.
+services:
+  agent:
+    ports:
+      - "18130:8130"
+
+  verification_mcp_server:
+    ports:
+      - "13010:3010"
+
+  vllm:
+    ports:
+      - "18901:8901"

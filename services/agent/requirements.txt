@@ -1,0 +1,14 @@
+# Прямые зависимости сервиса agent. Пиним то, что ломает совместимость
+# (langchain-семейство и mcp — см. комментарий ниже), остальное — нижняя граница.
+langchain==1.3.18
+langchain-core==1.6.1
+langchain-mcp-adapters==0.3.2
+langchain-openai==1.6.0
+langgraph==1.2.11
+langgraph-checkpoint==4.2.0
+# mcp пиним на 1.29.1: клиент (langchain-mcp-adapters) несовместим с mcp 2.x
+mcp==1.29.1
+pydantic>=2.0
+python-dotenv>=1.0
+fastapi>=0.140
+uvicorn>=0.52
