@@ -89,5 +89,24 @@ services:
     logging: *default-logging
     restart: unless-stopped
 
+  # Служебный одноразовый контейнер: скачивание данных с Google Drive
+  # (make download). Со стеком не стартует — только явный compose run.
+  dev-tools:
+    image: python:3.11-slim
+    working_dir: /app
+    profiles: ["assets"]
+    # Файлы в data/ должны принадлежать хост-пользователю, а не root
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./:/app    # скрипт видит .env и раскладывает файлы в data/
+    environment:
+      - HOME=/tmp
+      # Пакеты ставятся в /tmp/packages при каждом запуске (занимает секунды):
+      # кэшировать их в named volume нельзя — его корень принадлежит root
+      # и недоступен на запись под пользователем ${UID}
+      - PYTHONPATH=/tmp/packages
+      # ID файлов задаются в корневом .env (см. .env.example)
+      - GDRIVE_SNAPSHOT_JSON_ID=${GDRIVE_SNAPSHOT_JSON_ID:-}
+
 volumes:
   vllm-models:

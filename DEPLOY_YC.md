@@ -35,13 +35,15 @@ git clone git@github.com:CyX4Puk/AITHackathon.git
 cd AITHackathon
 ```
 
-Данные (`data/contractors_audit.snapshot.json`) уже в репозитории — отдельно копировать не нужно.
+Данные (`data/contractors_audit.snapshot.json`) в git не хранятся — при первом
+`make up` они скачаются с Google Drive автоматически; для этого нужен
+`GDRIVE_SNAPSHOT_JSON_ID` в корневом `.env` (шаг 3).
 
 ## 3. Создать `.env` с секретами (в git их нет)
 
 ```bash
 cp services/agent/.env.example services/agent/.env
-cp .env.example .env      # переменные compose; нужен порт входа, отличный от 8080 — меняйте WEB_UI_PORT
+cp .env.example .env      # переменные compose: ID снапшота на Google Drive и WEB_UI_PORT
 ```
 
 Отредактировать `services/agent/.env`:
@@ -51,12 +53,21 @@ ACTIVE_LLM_PROFILE=api_deepseek_agent
 DSLAB_API_KEY=<ваш ключ dslab>
 ```
 
+И корневой `.env`:
+
+```env
+GDRIVE_SNAPSHOT_JSON_ID=<ID файла со снапшотом на Google Drive>
+```
+
+Без ID `make up` упадёт на этапе скачивания данных. `WEB_UI_PORT` меняйте,
+если 8080 на ВМ занят.
+
 `MCP_VERIFICATION_URL` внутри compose переопределяется автоматически — трогать не нужно.
 
 ## 4. Запуск
 
 ```bash
-docker compose up -d --build
+make up    # при отсутствии снапшота в data/ сначала скачает его с Google Drive
 ```
 
 Проверка:
@@ -78,6 +89,7 @@ docker compose logs -f agent                   # логи агента
 docker compose logs -f verification_mcp_server
 docker compose up -d agent                     # после смены профиля в .env
 docker compose down                            # остановить всё
+make download                                  # докачать данные с Google Drive (существующие не перезаписывает)
 ```
 
 ---

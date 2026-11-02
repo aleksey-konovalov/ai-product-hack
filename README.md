@@ -95,15 +95,17 @@ UI и агент — **два независимых сервиса**:
 ```
 ├── README.md                       ← этот файл
 ├── DEPLOY_YC.md                    ← деплой на Yandex Cloud (Docker Compose)
-├── docker-compose.yml              ← web_ui + agent + verification_mcp_server (+ профиль vllm)
+├── docker-compose.yml              ← web_ui + agent + verification_mcp_server (+ профили vllm, assets)
 ├── docker-compose.debug.yml        ← отладочные публикации портов (host = внутренний + 10000)
-├── .env.example                    ← переменные compose (WEB_UI_PORT)
+├── Makefile                        ← make up/down/logs/download (up докачивает данные при необходимости)
+├── .env.example                    ← переменные compose (WEB_UI_PORT, GDRIVE_SNAPSHOT_JSON_ID)
 ├── pytest.ini / requirements-dev.txt / tests/   ← тесты (см. «Разработка»)
 ├── LICENSE                         (Apache-2.0)
 ├── data/
-│   └── contractors_audit.snapshot.json   # база: 100 отчётов GetFullReportResponse
+│   └── contractors_audit.snapshot.json   # база: 100 отчётов GetFullReportResponse (в git не хранится — make download)
 ├── shared/                         # общий python-пакет (логгирование)
-│   └── logging.py
+│   ├── logging.py
+│   └── utils/download_project_assets.py  # скачивание данных с Google Drive (вызывается make download)
 ├── reqs/                           # продуктовые спецификации
 │   ├── context_pack.md             # кейс, JTBD, требования кейсоадателя
 │   ├── signal_rules.md             # детерминированные правила сигналов (IF/THEN)
@@ -220,10 +222,10 @@ UI и агент — **два независимых сервиса**:
 ```bash
 cp services/agent/.env.example services/agent/.env
 # вписать ACTIVE_LLM_PROFILE и DSLAB_API_KEY
-# (опционально) cp .env.example .env      # если нужен порт входа, отличный от 8080
+cp .env.example .env                     # вписать GDRIVE_SNAPSHOT_JSON_ID — ID файла со снапшотом на Google Drive
 
-docker compose up -d --build
-curl http://localhost:8080/health      # {"ok": true, ...} — проверяет связку web_ui → agent
+make up                                  # проверит наличие данных, докачает при необходимости, поднимет стек
+curl http://localhost:8080/health        # {"ok": true, ...} — проверяет связку web_ui → agent
 # UI: http://localhost:8080/
 ```
 
@@ -270,7 +272,7 @@ python services/web_ui/dev_server.py      # UI: http://localhost:8080
 
 ## Данные
 
-`data/contractors_audit.snapshot.json` — 100 отчётов `GetFullReportResponse` (выгрузка банка), монтируется в MCP-контейнер read-only; база кэшируется по mtime файла, так что обновление снапшота не требует рестарта контейнера. Поля отчёта и правила нормализации описаны в `reqs/columns_spec.md` и `reqs/signal_rules.md` §1: пустой раздел трактуется как **пробел данных** (`gap`) или как **«не найдено»** (`info`) в зависимости от раздела; ИП (12-значный ИНН) не имеет финансов и учредителей — это норма, а не риск.
+`data/contractors_audit.snapshot.json` — 100 отчётов `GetFullReportResponse` (выгрузка банка), монтируется в MCP-контейнер read-only; база кэшируется по mtime файла, так что обновление снапшота не требует рестарта контейнера. Файл в git не хранится (чтобы не публиковать выгрузку банка) — скачивается с Google Drive по ID из `.env` (`make download`, `make up` делает это автоматически перед стартом; уже скачанные файлы не перезаписываются — чтобы перекачать, удалите файл из `data/`). Поля отчёта и правила нормализации описаны в `reqs/columns_spec.md` и `reqs/signal_rules.md` §1: пустой раздел трактуется как **пробел данных** (`gap`) или как **«не найдено»** (`info`) в зависимости от раздела; ИП (12-значный ИНН) не имеет финансов и учредителей — это норма, а не риск.
 
 Фронтенд использует собственную компактную копию данных (`services/web_ui/static/db.js`, `const DB`) для отрисовки карточек, матрицы и графиков. Она генерируется из снапшота:
 
@@ -285,11 +287,13 @@ python services/web_ui/generate_db.py --add-missing   # добавить ком�
 ## Разработка
 
 ```bash
+make logs                                       # все логи (или docker compose logs -f <сервис>)
 docker compose logs -f agent                    # логи агента
 docker compose logs -f verification_mcp_server  # логи MCP
 docker compose logs -f web_ui                   # access/error nginx
 docker compose up -d agent                      # после смены .env (пересоздаст контейнер)
-docker compose down                             # остановить всё
+make download                                   # докачать отсутствующие данные с Google Drive
+make down                                       # остановить всё (= docker compose down)
 ```
 
 Логи всех сервисов пишутся в stdout и собираются docker'ом с ротацией (`max-size: 10m`, 3 файла — в compose). Формат единый (`shared/logging.py`); каждая строка запроса содержит `[request_id]`, который генерирует nginx или агент и возвращает клиенту в заголовке `X-Request-ID`.
@@ -319,7 +323,6 @@ docker run --rm -v "$PWD":/work -w /work --entrypoint bash agent -c \
 ## Безопасность
 
 - `.env`-файлы и `DSLAB_API_KEY` в git не коммитятся (`.gitignore`).
-- Реальный ключ однажды попал в историю репозитория (коммит `9dd5fd0`, `services/verification_mcp_server/.env.example`) — ключ **аннулирован владельцем**; строка вычищена и из истории (`git filter-repo`, заменена на `REDACTED-REVOKED-KEY`). Клоны, сделанные до чистки, содержат ключ в своей истории — их нужно переклонировать или перебазировать на чистую.
 - Наружу публикуется только `web_ui` (порт — `WEB_UI_PORT`, по умолчанию 8080). Агент (`8130`) и MCP (`3010`) доступны только внутри docker-сети; для отладки — `docker-compose.debug.yml`.
 - CORS агента по умолчанию выключен; включается через `CORS_ALLOW_ORIGINS` только для разработки минуя nginx-прокси.
 - `MCP_ALLOW_ALL_HOSTS=1` отключает защиту от DNS-rebinding — допустимо только внутри изолированной docker-сети.
