@@ -7,7 +7,6 @@ import json
 import os
 
 import pytest
-
 from counteragents import (
     _extract_base_inn,
     _normalize_inns,

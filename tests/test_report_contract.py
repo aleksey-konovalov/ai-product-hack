@@ -8,7 +8,6 @@ from pathlib import Path
 
 import jsonschema
 import pytest
-
 from src.core.prompts import (
     ANSWER_KINDS,
     BLOCKS,
@@ -35,8 +34,8 @@ def test_schema_enums_built_from_constants():
     props = RESPONSE_SCHEMA["properties"]
     assert props["answer_kind"]["enum"] == ANSWER_KINDS
     assert props["panel"]["properties"]["kind"]["enum"] == PANEL_KINDS
-    assert props["panel"]["properties"]["block"]["enum"] == BLOCKS + [None]
-    assert props["panel"]["properties"]["metric"]["enum"] == CHART_METRICS + [None]
+    assert props["panel"]["properties"]["block"]["enum"] == [*BLOCKS, None]
+    assert props["panel"]["properties"]["metric"]["enum"] == [*CHART_METRICS, None]
     facts_props = props["facts"]["items"]["properties"]
     assert facts_props["slot"]["enum"] == SLOTS
     assert facts_props["polarity"]["enum"] == POLARITIES

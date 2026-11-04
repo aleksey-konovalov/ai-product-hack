@@ -12,3 +12,8 @@ packages = ["shared"]
 [tool.setuptools.package-dir]
 "shared" = "."
 
+[tool.ruff]
+# Общая конфигурация линтера — в ruff.toml в корне репозитория
+# (этот pyproject иначе перекрывает её для файлов внутри shared/).
+extend = "../ruff.toml"
+

@@ -1,0 +1,59 @@
+# CI: линт + сборка образов + тесты.
+# Тесты зависят только от tests/ и fixtures — снапшот data/ для них не нужен,
+# поэтому в CI данные с Google Drive не скачиваются.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Отменяем устаревшие прогоны той же ветки
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        # Версия пинится здесь и в Makefile (make lint) — проверки совпадают
+        run: pip install ruff==0.17.3
+      - name: Run ruff
+        run: ruff check .
+
+  test:
+    name: Test (build + pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      # Сборка agent-образа с кэшем слоёв: это же проверяет Dockerfile и пины зависимостей
+      - name: Build agent image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/agent/Dockerfile
+          load: true
+          tags: agent:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Остальные образы стека — без кэша (сборка быстрая, без тяжёлых зависимостей)
+      - name: Build the rest of the stack
+        run: docker compose build verification_mcp_server web_ui
+
+      - name: Run tests in the agent image
+        run: |
+          docker run --rm -v "$PWD":/work -w /work --entrypoint bash agent:ci -c \
+            "python -m pip install -q -r requirements-dev.txt && PYTHONPATH=/work python -m pytest"

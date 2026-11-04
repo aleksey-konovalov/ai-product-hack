@@ -5,15 +5,16 @@
 import asyncio
 import json
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any
 
-Counteragent = Dict[str, Any]
-InnInput = Optional[Union[str, int, Iterable[str]]]
-DbSource = Union[List[Counteragent], str, Path]
+Counteragent = dict[str, Any]
+InnInput = str | int | Iterable[str] | None
+DbSource = list[Counteragent] | str | Path
 
 
-def _normalize_inns(inns: InnInput) -> List[str]:
+def _normalize_inns(inns: InnInput) -> list[str]:
     """
     Приводит входные ИНН к списку уникальных непустых строк.
     Поддерживает один ИНН (строкой или числом) или список/кортеж ИНН.
@@ -25,7 +26,7 @@ def _normalize_inns(inns: InnInput) -> List[str]:
     raw_items = [inns] if isinstance(inns, (str, int)) else list(inns)
 
     seen: set = set()
-    result: List[str] = []
+    result: list[str] = []
     for item in raw_items:
         inn = str(item).strip()
         if inn and inn not in seen:
@@ -74,7 +75,7 @@ def short_company_info(record: Counteragent) -> Counteragent:
     }
 
 
-def _ensure_list(data) -> List[Counteragent]:
+def _ensure_list(data) -> list[Counteragent]:
     """JSON-база: один объект оборачиваем в список, иначе проверяем тип."""
     if isinstance(data, dict):
         data = [data]
@@ -83,9 +84,9 @@ def _ensure_list(data) -> List[Counteragent]:
     return data
 
 
-def _build_index(records: List[Counteragent]) -> Dict[str, List[Counteragent]]:
+def _build_index(records: list[Counteragent]) -> dict[str, list[Counteragent]]:
     """Индекс ИНН → записи (один ИНН может встречаться несколько раз)."""
-    index: Dict[str, List[Counteragent]] = {}
+    index: dict[str, list[Counteragent]] = {}
     for record in records:
         inn = _extract_base_inn(record)
         if inn:
@@ -101,11 +102,11 @@ class _SnapshotCache:
     """
 
     def __init__(self):
-        self._path: Optional[Path] = None
-        self._mtime: Optional[float] = None
-        self._index: Dict[str, List[Counteragent]] = {}
+        self._path: Path | None = None
+        self._mtime: float | None = None
+        self._index: dict[str, list[Counteragent]] = {}
 
-    def get_index(self, source: DbSource) -> Dict[str, List[Counteragent]]:
+    def get_index(self, source: DbSource) -> dict[str, list[Counteragent]]:
         if isinstance(source, list):
             return _build_index(source)
 
@@ -131,7 +132,7 @@ _cache = _SnapshotCache()
 def get_counteragents_by_inn(
     db: DbSource,
     inns: InnInput,
-) -> tuple[List[Counteragent], List[str]]:
+) -> tuple[list[Counteragent], list[str]]:
     """
     Возвращает:
     - найденных контрагентов (в порядке запрошенных ИНН);
@@ -140,7 +141,7 @@ def get_counteragents_by_inn(
     index = _cache.get_index(db)
     wanted = _normalize_inns(inns)
 
-    found: List[Counteragent] = []
+    found: list[Counteragent] = []
     found_inns: set = set()
     for inn in wanted:
         for record in index.get(inn, []):
@@ -165,8 +166,8 @@ async def build_counteragents_payload(
     inns: InnInput,
     *,
     raise_on_missing: bool = False,
-    full: Optional[bool] = None,
-) -> Dict[str, Any]:
+    full: bool | None = None,
+) -> dict[str, Any]:
     """
     Собирает ответ для MCP-тула:
     - found: данные найденных контрагентов;
@@ -186,7 +187,7 @@ async def build_counteragents_payload(
     if full is None:
         full = _use_full_payload()
 
-    found_payload: List[Any] = found if full else [short_company_info(record) for record in found]
+    found_payload: list[Any] = found if full else [short_company_info(record) for record in found]
 
     return {
         "found": found_payload,

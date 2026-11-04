@@ -180,8 +180,8 @@ RESPONSE_SCHEMA = {
             "properties": {
                 "kind": {"type": "string", "enum": PANEL_KINDS},
                 "inn": {"type": ["string", "null"]},
-                "block": {"type": ["string", "null"], "enum": BLOCKS + [None]},
-                "metric": {"type": ["string", "null"], "enum": CHART_METRICS + [None]},
+                "block": {"type": ["string", "null"], "enum": [*BLOCKS, None]},
+                "metric": {"type": ["string", "null"], "enum": [*CHART_METRICS, None]},
             },
         },
         "suggestions": {

@@ -97,7 +97,7 @@ UI и агент — **два независимых сервиса**:
 ├── DEPLOY_YC.md                    ← деплой на Yandex Cloud (Docker Compose)
 ├── docker-compose.yml              ← web_ui + agent + verification_mcp_server (+ профили vllm, assets)
 ├── docker-compose.debug.yml        ← отладочные публикации портов (host = внутренний + 10000)
-├── Makefile                        ← make up/down/logs/download (up докачивает данные при необходимости)
+├── Makefile                        ← make up/down/logs/download, lint/test (up докачивает данные при необходимости)
 ├── .env.example                    ← переменные compose (WEB_UI_PORT, GDRIVE_SNAPSHOT_JSON_ID)
 ├── pytest.ini / requirements-dev.txt / tests/   ← тесты (см. «Разработка»)
 ├── LICENSE                         (Apache-2.0)
@@ -278,7 +278,7 @@ python services/web_ui/dev_server.py      # UI: http://localhost:8080
 
 ```bash
 python services/web_ui/generate_db.py                 # обновить числа из снапшота (тексты сохраняются)
-python services/web_ui/generate_db.py --check         # проверка актуальности (для CI)
+python services/web_ui/generate_db.py --check         # проверить, что db.js не разошёлся со снапшотом
 python services/web_ui/generate_db.py --add-missing   # добавить компании снапшота, которых ещё нет в db.js
 ```
 
@@ -294,6 +294,8 @@ docker compose logs -f web_ui                   # access/error nginx
 docker compose up -d agent                      # после смены .env (пересоздаст контейнер)
 make download                                   # докачать отсутствующие данные с Google Drive
 make down                                       # остановить всё (= docker compose down)
+make lint                                       # линт Python-кода (ruff, конфиг ruff.toml)
+make test                                       # тесты в собранном образе agent (то же, что в CI)
 ```
 
 Логи всех сервисов пишутся в stdout и собираются docker'ом с ротацией (`max-size: 10m`, 3 файла — в compose). Формат единый (`shared/logging.py`); каждая строка запроса содержит `[request_id]`, который генерирует nginx или агент и возвращает клиенту в заголовке `X-Request-ID`.
@@ -303,12 +305,22 @@ make down                                       # остановить всё (=
 Тесты (`tests/`) гоняются в собранном образе agent — там уже все пиненые зависимости, это же проверяет сборку:
 
 ```bash
-docker compose build agent
-docker run --rm -v "$PWD":/work -w /work --entrypoint bash agent -c \
-  "pip install -q -r requirements-dev.txt && PYTHONPATH=/work pytest"
+make test
+```
+
+Или вручную (то же самое; тег `agent-tests` — чтобы не зависеть от имени compose-проекта):
+
+```bash
+docker build -t agent-tests -f services/agent/Dockerfile .
+docker run --rm -v "$PWD":/work -w /work --entrypoint bash agent-tests -c \
+  "python -m pip install -q -r requirements-dev.txt && PYTHONPATH=/work python -m pytest"
 ```
 
 Или локально (Python 3.11+, установленные `services/agent/requirements.txt` + `requirements-dev.txt`): `PYTHONPATH=. pytest`.
+
+### Линт и CI
+
+`make lint` — ruff по конфигу `ruff.toml` (версия пинится в Makefile и в CI, проверки совпадают). CI — `.github/workflows/ci.yml`: на каждый push в `main` и на PR два job — `lint` (ruff) и `test` (сборка всех образов + тесты в образе agent, слои кэшируются через GHA-cache). Тестам снапшот не нужен, поэтому данные с Google Drive в CI не скачиваются.
 
 Покрытие: контракт `RESPONSE_SCHEMA` (включая эталонные ответы в `tests/fixtures/`), база контрагентов MCP (нормализация, поиск, кэш по mtime, payload), фолбэки `chat_service` (prose/markdown → JSON), API-контракт `/chat` и `/health` (через TestClient с подменённым агентом).
 

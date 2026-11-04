@@ -110,10 +110,10 @@ async def agent_turn(message: str, session: dict):
         if isinstance(result, dict):
             msgs = result.get("messages", [])
             for m in reversed(msgs):
-                if hasattr(m, "content") and isinstance(m.content, str) and m.content.strip():
-                    if getattr(m, "type", "") == "ai" or getattr(m, "role", "") == "assistant":
-                        content = m.content
-                        break
+                if (hasattr(m, "content") and isinstance(m.content, str) and m.content.strip()
+                        and (getattr(m, "type", "") == "ai" or getattr(m, "role", "") == "assistant")):
+                    content = m.content
+                    break
             if not content and msgs:
                 content = str(msgs[-1].content if hasattr(msgs[-1], "content") else msgs[-1])
         elif hasattr(result, "content"):
@@ -156,7 +156,7 @@ async def agent_turn(message: str, session: dict):
             turn["panel"] = panel
     turn["_fetched"] = fetched
     turn["_missing"] = missing
-    return turn, {}, "agent"
+    return turn, "agent"
 
 
 def _legacy_session(payload: dict) -> dict:
@@ -176,7 +176,7 @@ async def run_chat(payload: dict) -> dict:
     if not session:
         session = _legacy_session(payload)
 
-    turn, analyze, source = await agent_turn(payload.get("message", ""), session)
+    turn, source = await agent_turn(payload.get("message", ""), session)
 
     validation = {"data_source": source, "issues": [],
                   "fetched": turn.pop("_fetched", []), "missing": turn.pop("_missing", [])}

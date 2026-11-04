@@ -11,7 +11,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from dotenv import load_dotenv, find_dotenv
+from dotenv import find_dotenv, load_dotenv
 from langchain_openai import ChatOpenAI
 
 # .env из каталога сервиса (для запуска без docker; в контейнере env приходит из compose)
@@ -27,7 +27,7 @@ KEYLESS_API_KEY_ENV = {"", "any", "none", "null"}
 @lru_cache(maxsize=1)
 def load_config() -> dict:
     """Чтение JSON конфига (кэшируется: файл не меняется в рантайме)."""
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    with open(CONFIG_PATH, encoding="utf-8") as f:
         return json.load(f)
 
 

@@ -14,7 +14,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.checkpoint.memory import InMemorySaver
 
 from .llm_client import get_llm
-from .prompts import SYSTEM_PROMPT, RESPONSE_SCHEMA
+from .prompts import RESPONSE_SCHEMA, SYSTEM_PROMPT
 
 
 class RootAgent:

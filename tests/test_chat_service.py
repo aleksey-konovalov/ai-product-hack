@@ -49,7 +49,7 @@ def test_structured_response_and_fetched(monkeypatch):
     })
     monkeypatch.setattr(cs, "root_agent", fake)
 
-    turn, analyze, source = asyncio.run(cs.agent_turn("проверь 111", {"inns": ["111"], "sid": "s-1"}))
+    turn, source = asyncio.run(cs.agent_turn("проверь 111", {"inns": ["111"], "sid": "s-1"}))
 
     assert source == "agent"
     assert turn["primary_inn"] == "111"          # подтянут из _fetched
@@ -70,7 +70,7 @@ def test_fallback_json_in_markdown_fence(monkeypatch):
     })
     monkeypatch.setattr(cs, "root_agent", fake)
 
-    turn, _, _ = asyncio.run(cs.agent_turn("вопрос", {"sid": "s-2"}))
+    turn, _ = asyncio.run(cs.agent_turn("вопрос", {"sid": "s-2"}))
     assert turn["answer_kind"] == "qa"
     assert turn["reply_text"] == "готово"
     assert turn["_fetched"] == ["111"]
@@ -80,7 +80,7 @@ def test_fallback_prose_becomes_qa_turn(monkeypatch):
     fake = FakeAgent({"messages": [_ai_msg("Погодите, данных нет.")]})
     monkeypatch.setattr(cs, "root_agent", fake)
 
-    turn, _, _ = asyncio.run(cs.agent_turn("вопрос", {"sid": "s-3"}))
+    turn, _ = asyncio.run(cs.agent_turn("вопрос", {"sid": "s-3"}))
     assert turn["answer_kind"] == "qa"
     assert turn["reply_text"] == "Погодите, данных нет."
     assert turn["_fetched"] == []
