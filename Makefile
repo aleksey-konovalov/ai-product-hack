@@ -8,7 +8,10 @@ export UID GID
 # Если файла нет на make up — запускается скачивание (make download).
 SNAPSHOT_PATH := data/contractors_audit.snapshot.json
 
-.PHONY: up down logs download check-data
+# Ruff пинится здесь и в .github/workflows/ci.yml — одинаковые проверки локально и в CI.
+RUFF_VERSION := 0.17.3
+
+.PHONY: up down logs download check-data lint test
 
 # Поднять весь стек; перед стартом докачивает данные, если их нет.
 up: check-data
@@ -32,3 +35,17 @@ down:
 
 logs:
 	docker compose logs -f
+
+# Линт Python-кода (конфиг — ruff.toml). Кэш ruff — в /tmp, чтобы не сорить в репозитории.
+lint:
+	docker run --rm -v "$(CURDIR)":/work -w /work \
+		-e RUFF_CACHE_DIR=/tmp/ruff-cache \
+		ghcr.io/astral-sh/ruff:$(RUFF_VERSION) check .
+
+# Тесты в собранном образе agent (README, раздел «Тесты») — заодно проверяет сборку.
+# Явный тег вместо имени compose-проекта; без env_file — тесты идут в герметичном
+# окружении из tests/conftest.py, а не с реальными настройками сервиса.
+test:
+	docker build -t agent-tests -f services/agent/Dockerfile .
+	docker run --rm -v "$(CURDIR)":/work -w /work --entrypoint bash agent-tests -c \
+		"python -m pip install -q -r requirements-dev.txt && PYTHONPATH=/work python -m pytest"
