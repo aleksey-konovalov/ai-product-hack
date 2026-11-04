@@ -7,10 +7,9 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from fastapi.testclient import TestClient
-
 import src.app as app_module
 import src.chat_service as cs
+from fastapi.testclient import TestClient
 
 
 class FakeAgent:

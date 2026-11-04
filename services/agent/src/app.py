@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
-from shared.logging import setup_logging, request_id_var
+from shared.logging import request_id_var, setup_logging
 
 setup_logging("agent")
 

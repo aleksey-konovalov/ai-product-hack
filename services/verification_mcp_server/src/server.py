@@ -12,11 +12,13 @@ from pathlib import Path
 # @mcp.tool(), @mcp.resource(), mcp.streamable_http_app()). Пытаемся импортировать
 # «родной» MCPServer, иначе используем FastMCP под тем же именем.
 try:
-    from mcp.server.mcpserver import MCPServer, Context  # noqa: F401
+    from mcp.server.mcpserver import Context, MCPServer
 except ModuleNotFoundError:
-    from mcp.server.fastmcp import FastMCP as MCPServer, Context
+    from mcp.server.fastmcp import Context
+    from mcp.server.fastmcp import FastMCP as MCPServer
 
 from counteragents import build_counteragents_payload
+
 from shared.logging import setup_logging
 
 setup_logging("verification_mcp_server")
